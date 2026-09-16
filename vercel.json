@@ -1,0 +1,18 @@
+{
+  "framework": "vite",
+  "functions": {
+    "api/journey.mjs": {
+      "maxDuration": 60,
+      "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/strategies", "destination": "/index.html" },
+    { "source": "/strategies/:path*", "destination": "/index.html" },
+    { "source": "/jiagoumao/api/analyze", "destination": "/api/analyze" },
+    { "source": "/jiagoumao/api/journey", "destination": "/api/journey" },
+    { "source": "/jiagoumao/assets/:path*", "destination": "/assets/:path*" },
+    { "source": "/jiagoumao", "destination": "/index.html" },
+    { "source": "/jiagoumao/:path*", "destination": "/index.html" }
+  ]
+}

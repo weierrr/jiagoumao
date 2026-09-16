@@ -1,0 +1,21 @@
+{
+  "name": "scope-cat",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "build": "vite build",
+    "preview": "NODE_ENV=production node server.mjs",
+    "worker": "NODE_ENV=production node worker.mjs"
+  },
+  "dependencies": {
+    "@fontpkg/alimama-shu-hei-ti": "^1.0.5",
+    "@sparticuz/chromium": "^149.0.0",
+    "puppeteer-core": "^25.8.0",
+    "vite": "^7.1.1"
+  },
+  "devDependencies": {
+    "vite": "^7.1.1"
+  }
+}
