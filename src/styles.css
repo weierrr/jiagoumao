@@ -292,3 +292,31 @@ body{overflow-x:hidden}
 
 .handoff-note{display:flex;gap:10px;align-items:center;margin:12px auto 0;max-width:760px;padding:10px 13px;border:1px solid var(--line);background:#f2f7f5;color:var(--muted);font-size:12px;line-height:1.45}.handoff-note strong{color:var(--ink);white-space:nowrap}.handoff-note span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:760px){.handoff-note{align-items:flex-start;flex-direction:column;gap:3px}.handoff-note span{white-space:normal}}
+
+/* 每个策略的上手配置说明：把“看懂案例”直接连接到“后台怎么做” */
+.config-guide{margin:24px 0 0;border-top:2px solid #222;border-bottom:2px solid #222;background:#f3f9d8}
+.config-guide-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:16px 22px 12px;border-bottom:1px solid #222;background:#eaff72}
+.config-guide-head span{font:900 10px/1 ui-monospace,monospace;letter-spacing:.16em;color:#4d5b00}
+.config-guide-head h4{margin:0;font:950 25px/1 "Alimama ShuHeiTi",Geist,Inter,"PingFang SC",sans-serif;letter-spacing:-.05em;color:#111}
+.config-guide-body{display:grid;grid-template-columns:minmax(170px,.7fr) minmax(0,1.3fr);gap:0}
+.config-guide-body>div{padding:17px 22px 19px}
+.config-guide-body>div+div{border-left:1px solid #222}
+.config-guide-body small{display:block;margin-bottom:9px;color:#5c640e;font:850 10px/1.3 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase}
+.config-guide-body strong{display:block;color:#111;font-size:15px;line-height:1.45}
+.config-guide-body p{margin:0;color:#2e3510;font-size:14px;line-height:1.75}
+.tool-resource{margin:24px 0 0;padding:18px 22px 22px;border-top:2px solid #222;border-bottom:2px solid #222;background:#fff}
+.tool-resource-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:12px}
+.tool-resource-head small{display:block;margin-bottom:5px;color:#637000;font:900 10px/1.3 ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}
+.tool-resource-head strong{display:block;color:#111;font-size:17px;line-height:1.35}
+.tool-resource-head>span{padding:6px 8px;border:1px solid #222;background:#f3f9d8;color:#4e5700;font:850 10px/1 ui-monospace,monospace;white-space:nowrap}
+.tool-resource-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.tool-resource-card{position:relative;display:grid;grid-template-columns:25px minmax(0,1fr) 16px;gap:8px;min-height:105px;padding:12px 11px 11px;text-decoration:none;color:#111;border:1px solid #222;background:#fafafa;transition:transform .16s ease,background .16s ease,box-shadow .16s ease}
+.tool-resource-card:hover{transform:translate(-2px,-2px);background:#eaff72;box-shadow:3px 4px 0 #222}
+.tool-resource-card.is-featured{background:#111;color:#fff;border-color:#111}
+.tool-resource-card.is-featured:hover{background:#262626}
+.tool-resource-index{font:900 10px/1 ui-monospace,monospace;color:var(--orange)}
+.tool-resource-card>div{min-width:0}.tool-resource-card strong{display:block;font-size:14px;line-height:1.25}.tool-resource-card small{display:block;margin-top:4px;color:#687000;font:800 10px/1.2 ui-monospace,monospace}.tool-resource-card.is-featured small{color:#eaff72}
+.tool-resource-card p{margin:9px 0 0;color:#555;font-size:11px;line-height:1.45}.tool-resource-card.is-featured p{color:#d7d7d7}
+.tool-resource-card>b{font:900 15px/1 Arial,sans-serif;color:var(--orange);align-self:start}
+@media(max-width:700px){.config-guide-head{padding:14px 17px 11px}.config-guide-head h4{font-size:23px}.config-guide-body{grid-template-columns:1fr}.config-guide-body>div{padding:15px 17px 16px}.config-guide-body>div+div{border-left:0;border-top:1px solid #222}.config-guide-body p{font-size:13px;line-height:1.7}}
+@media(max-width:700px){.tool-resource{padding:16px 17px 18px}.tool-resource-head{align-items:flex-start;flex-direction:column;gap:8px}.tool-resource-grid{grid-template-columns:1fr}.tool-resource-card{min-height:0}.tool-resource-card p{margin-top:6px}}

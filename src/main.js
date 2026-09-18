@@ -104,6 +104,106 @@ const STRATEGY_EXAMPLES = {
   'quiz-recommendation':['顾客面对十几款相似商品，只能逐页比较。','用 5 个问题了解肤质、预算和目标，输出主推款及配套方案。']
 }
 
+const STRATEGY_CONFIG_GUIDES = {
+  'free-shipping': ['Shopify 原生「配送和交付」', '后台进入 设置 → 配送和交付 → 对应配送区域，新增“满额免邮”费率；再在购物车主题区补上距离门槛的提示。'],
+  'gift-threshold': ['满额赠品应用（支持自动加赠）', '设置订单金额门槛、赠品商品和库存规则；把赠品状态同步到购物车，并测试未达标、达标和取消商品三种情况。'],
+  'discount-code': ['Shopify 原生折扣 + Shopify Forms', '在 后台 → 折扣 中创建首单折扣，限定新客户或指定商品；用表单收集邮箱后展示兑换入口，避免全站长期降价。'],
+  'cart-progress': ['购物车主题编辑器 / 进度条应用', '在购物车模板加入免邮或赠品目标，显示当前金额、还差金额和达成状态；修改数量后确认进度实时更新。'],
+  'compare-at': ['Shopify 原生价格字段', '编辑商品或变体，在“对比价格”填写真实原价；只对确有促销依据的商品使用，并检查集合页和商品页显示一致。'],
+  'bundle': ['Shopify Bundles 或组合销售应用', '创建固定套装或组合商品，关联互补商品和套装价格；确认库存扣减、拆单发货和退货规则都能正常处理。'],
+  'quantity-break': ['阶梯折扣 / 数量折扣应用', '设置 2 件、3 件等数量档位和对应单价，绑定到商品或集合；检查折扣是否与其他优惠叠加。'],
+  'product-recs': ['Shopify Search & Discovery', '在 Search & Discovery 中为商品添加互补推荐或相关商品；优先推荐同场景配件，并在商品页预览移动端位置。'],
+  'frequently-bought': ['组合推荐应用或 Shopify Bundles', '建立“主商品 + 配件”的商品关系，开启一键全选；分别测试取消配件、修改数量和库存不足时的表现。'],
+  'landing-bundle': ['Online Store 主题 + Shopify Bundles', '新建场景落地页，按使用场景组织商品和套装 CTA；把套装商品、节省金额和配送说明放在首屏可见区域。'],
+  'cart-drawer': ['购物车抽屉主题组件 / 购物车应用', '在主题编辑器开启加购后打开购物车抽屉，加入小计、门槛进度和 1 个配套推荐；验证抽屉不会遮挡结账按钮。'],
+  'cart-upsell': ['购物车加购推荐应用', '选择价格低、决策轻的配件，在购物车小计下方配置一键加购；限制推荐数量，避免干扰结账。'],
+  'sticky-add': ['Online Store 2.0 主题区块或悬浮加购应用', '在商品模板添加悬浮加购栏，绑定当前变体、价格和库存；滚动、切换变体后检查按钮状态同步。'],
+  'upsell-upgrade': ['商品变体 + 升级推荐应用', '把基础款和高配款放在同一商品或关联商品组中，明确展示差价和升级权益；确认升级后库存、图片和变体都切换正确。'],
+  'checkout-upsell': ['Shopify Checkout Extensibility（需满足套餐条件）', '在结账编辑器添加低决策附加项，如运输保障或礼盒；限制为 1 个主推荐，并检查结账速度和支付方式兼容性。'],
+  'post-purchase': ['购买后追加销售应用', '创建支付成功页的追加 offer，设置有效期、折扣和适用商品；测试拒绝、接受、退款和重复下单路径。'],
+  'subscription': ['Shopify Subscriptions 或订阅应用', '为消耗型商品建立单次购买与订阅计划，设置配送周期、订阅价和暂停规则；在商品页说明随时暂停或取消。'],
+  'membership': ['Shopify 原生客户账户 + 积分会员应用', '设定注册、下单和升级所需积分，配置购物车中的积分提示；先核对积分成本和有效期，再开放兑换。'],
+  'social-share': ['购买后分享 / 推荐奖励应用', '设置邀请链接、好友优惠和老客奖励，绑定订单完成页；限制自购、重复设备和异常分享，避免奖励被滥用。'],
+  'back-in-stock': ['补货提醒应用', '在缺货变体旁开启邮箱或短信订阅，设置补货触发通知；同时配置同系列现货推荐，并检查隐私同意文案。'],
+  'limited-time': ['Shopify 原生折扣 + 倒计时区块', '先在折扣中设置明确开始和结束时间，再在活动区块展示倒计时；到期后自动恢复原价，不使用长期循环倒计时。'],
+  'low-stock': ['库存管理 + 低库存提示应用', '设定库存阈值，例如低于 5 件才显示提示；绑定真实可售库存，缺货和不同变体分别测试。'],
+  'social-proof': ['评价应用（Judge.me / Loox 等）', '安装评价应用并同步已验证订单，在价格和加购按钮附近展示评分、数量和真实图片；关闭无法验证来源的评价。'],
+  'free-returns': ['Shopify 页面 + 退换货应用', '在商品页和结账附近写清退换期限、质保范围和例外情况；把保障说明放在升级 CTA 下方，并同步政策页面。'],
+  'free-gift-card': ['Shopify 原生礼品卡', '在 产品 → 礼品卡 中创建面额和设计，补充收件人、祝福语与发送时间说明；检查余额、退款和过期规则。'],
+  'gift-wrap': ['礼盒 / 加价服务应用或商品加购项', '创建礼盒服务商品，允许在购物车选择并填写留言；确认包装费只收一次，且不会影响主商品配送。'],
+  'personalization': ['定制字段应用或产品选项应用', '给商品增加姓名、刻字或颜色字段，配置加价、预览和最长交付时间；检查定制信息能传到订单和履约端。'],
+  'quiz-recommendation': ['Shopify Forms + 问答推荐应用', '设计 3–5 个高区分度问题，把答案映射到少量推荐商品；保存结果前说明用途，并测试每条答案都有可购买结果。']
+}
+
+function configGuideFor(strategy) {
+  return STRATEGY_CONFIG_GUIDES[strategy.id] || ['对应策略应用或 Shopify 主题区块', '先在测试商品上配置策略，再用未达标、达标和取消操作各跑一遍，确认价格、库存和结账结果一致。']
+}
+
+const TOOL_RECOMMENDATIONS = {
+  bundles: [
+    ['Shopify Bundles', 'Shopify 官方', '固定套装与多件装', 'https://apps.shopify.com/shopify-bundles'],
+    ['Kaching Bundles', 'Shopify App Store', '套装、数量折扣和加购', 'https://apps.shopify.com/bundle-deals'],
+    ['Bundler', 'Shopify App Store', '组合销售与阶梯折扣', 'https://apps.shopify.com/bundler-product-bundles']
+  ],
+  upsell: [
+    ['Selleasy', 'Shopify App Store', '购物车与结账加购', 'https://apps.shopify.com/easy-upsell'],
+    ['ReConvert', 'Shopify App Store', '感谢页与购买后 Offer', 'https://apps.shopify.com/reconvert'],
+    ['AfterSell', 'Shopify App Store', '购买后升级与追加销售', 'https://apps.shopify.com/aftersell']
+  ],
+  recommendations: [
+    ['Search & Discovery', 'Shopify 官方', '商品推荐与筛选', 'https://apps.shopify.com/search-and-discovery'],
+    ['Selleasy', 'Shopify App Store', '配件与一键加购', 'https://apps.shopify.com/easy-upsell'],
+    ['Kaching', 'Shopify App Store', '推荐与组合 Offer', 'https://apps.shopify.com/bundle-deals']
+  ],
+  reviews: [
+    ['Judge.me', 'Shopify App Store', '评价与照片证明', 'https://apps.shopify.com/judgeme'],
+    ['Loox', '照片评价', 'UGC 与评分展示', 'https://apps.shopify.com/loox'],
+    ['Shopify Product Reviews', 'Shopify 官方', '基础评价模块', 'https://apps.shopify.com/product-reviews']
+  ],
+  retention: [
+    ['Shopify Subscriptions', 'Shopify 官方', '订阅购买计划', 'https://apps.shopify.com/shopify-subscriptions'],
+    ['Smile', '积分会员', '积分与推荐奖励', 'https://apps.shopify.com/smile-io'],
+    ['Growave', '会员套件', '积分、评价与愿望单', 'https://apps.shopify.com/growave']
+  ],
+  urgency: [
+    ['Essential Countdown Timer', '倒计时', '活动倒计时区块', 'https://apps.shopify.com/essential-countdown-timer'],
+    ['Fomo', '社会证明', '实时购买与库存提示', 'https://apps.shopify.com/fomo'],
+    ['Vitals', '多功能套件', '倒计时与低库存组件', 'https://apps.shopify.com/vitals']
+  ],
+  options: [
+    ['Easify Product Options', 'Shopify App Store', '定制字段与加价', 'https://apps.shopify.com/easify-product-options'],
+    ['Product Options', 'Shopify App Store', '定制、礼盒与加价', 'https://apps.shopify.com/product-options'],
+    ['Shopify Forms', 'Shopify 官方', '问答与邮箱收集', 'https://apps.shopify.com/shopify-forms']
+  ],
+  gift: [
+    ['Shopify 礼品卡', 'Shopify 官方', '礼品卡与送礼场景', 'https://help.shopify.com/en/manual/products/gift-card-products'],
+    ['Wrapin', '礼盒包装', '礼盒与留言卡', 'https://apps.shopify.com/wrapin-gift-wrap']
+  ]
+}
+
+const STRATEGY_TOOL_GROUPS = {
+  'free-shipping':'upsell', 'gift-threshold':'gift', 'discount-code':'upsell', 'cart-progress':'upsell', 'compare-at':'upsell',
+  'bundle':'bundles', 'quantity-break':'bundles', 'product-recs':'recommendations', 'frequently-bought':'bundles', 'landing-bundle':'bundles',
+  'cart-drawer':'upsell', 'cart-upsell':'upsell', 'sticky-add':'upsell', 'upsell-upgrade':'upsell', 'checkout-upsell':'upsell', 'post-purchase':'upsell',
+  'subscription':'retention', 'membership':'retention', 'social-share':'retention', 'back-in-stock':'retention',
+  'limited-time':'urgency', 'low-stock':'urgency', 'social-proof':'reviews', 'free-returns':'upsell',
+  'free-gift-card':'gift', 'gift-wrap':'gift', 'personalization':'options', 'quiz-recommendation':'options'
+}
+
+function toolRecommendationsFor(strategy) {
+  return TOOL_RECOMMENDATIONS[STRATEGY_TOOL_GROUPS[strategy.id]] || TOOL_RECOMMENDATIONS.upsell
+}
+
+function toolResourceTemplate(strategy) {
+  const tools = toolRecommendationsFor(strategy)
+  return `<div class="tool-resource" aria-label="${escapeHtml(strategy.name)}推荐工具">
+    <div class="tool-resource-head"><div><small>推荐工具 / 资源位</small><strong>可以直接从这些工具开始</strong></div><span>Shopify App Store</span></div>
+    <div class="tool-resource-grid">${tools.map(([name, tag, detail, url], index) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="tool-resource-card ${index === 0 ? 'is-featured' : ''}">
+      <span class="tool-resource-index">0${index + 1}</span><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(tag)}</small><p>${escapeHtml(detail)}</p></div><b aria-hidden="true">↗</b>
+    </a>`).join('')}</div>
+  </div>`
+}
+
 const RECOMMENDATION_COPY = {
   'free-shipping': ['把免邮门槛前置到购物车', '如果当前客单价离免邮线不远，在购物车提示“再加一点即可免邮”，并推荐一个低价补足商品。', '看加购率、达到免邮门槛的订单占比，以及是否推高真实客单价。'],
   'gift-threshold': ['用满额赠品拉高购物车金额', '设置一个略高于当前平均客单价的赠品门槛，让用户为了拿到赠品自然多买一件。', '看赠品门槛达成率、赠品成本占比和整体毛利是否变好。'],
@@ -327,12 +427,18 @@ function flatStrategies() {
 
 function strategyDetailTemplate(strategy) {
   const example = STRATEGY_EXAMPLES[strategy.id]
+  const [tool, steps] = configGuideFor(strategy)
   return `<aside class="strategy-detail-drawer" aria-live="polite">
     <div class="strategy-detail-kicker"><span>${String(strategy.index).padStart(2, '0')}</span><b>${escapeHtml(strategy.stage)}</b></div>
     <h3>${escapeHtml(strategy.name)}</h3>
     <p class="strategy-detail-subtitle">${escapeHtml(strategy.group)} · 看这个策略在真实电商页面里通常怎么出现。</p>
     <div class="strategy-example"><div><small>配置前</small><p>${escapeHtml(example[0])}</p></div><div><small>配置后</small><p>${escapeHtml(example[1])}</p></div></div>
     ${strategyDemoTemplate(strategy.id, strategy.name)}
+    <section class="config-guide" aria-labelledby="config-guide-title">
+      <div class="config-guide-head"><span>HOW TO CONFIGURE</span><h4 id="config-guide-title">如何配置</h4></div>
+      <div class="config-guide-body"><div><small>后台入口 / 首选方案</small><strong>${escapeHtml(tool)}</strong></div><div><small>配置步骤</small><p>${escapeHtml(steps)}</p></div></div>
+    </section>
+    ${toolResourceTemplate(strategy)}
   </aside>`
 }
 
