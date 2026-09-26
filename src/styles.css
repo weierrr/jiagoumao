@@ -320,3 +320,95 @@ body{overflow-x:hidden}
 .tool-resource-card>b{font:900 15px/1 Arial,sans-serif;color:var(--orange);align-self:start}
 @media(max-width:700px){.config-guide-head{padding:14px 17px 11px}.config-guide-head h4{font-size:23px}.config-guide-body{grid-template-columns:1fr}.config-guide-body>div{padding:15px 17px 16px}.config-guide-body>div+div{border-left:0;border-top:1px solid #222}.config-guide-body p{font-size:13px;line-height:1.7}}
 @media(max-width:700px){.tool-resource{padding:16px 17px 18px}.tool-resource-head{align-items:flex-start;flex-direction:column;gap:8px}.tool-resource-grid{grid-template-columns:1fr}.tool-resource-card{min-height:0}.tool-resource-card p{margin-top:6px}}
+/* Compact diagnosis views keep the existing ink, orange and lime palette. */
+.strategy-controls { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; padding:18px 0; }
+.strategy-controls label { display:grid; gap:6px; font-size:12px; font-weight:700; }
+.strategy-controls select { min-width:110px; max-width:180px; min-height:38px; padding:7px 26px 7px 10px; border:1px solid #6b7971; border-radius:6px; background:#f7f9f5; color:#17241e; font:inherit; }
+.strategy-view-switch { display:flex; padding:3px; border:1px solid #6b7971; border-radius:8px; gap:3px; }
+.strategy-view-switch button,.strategy-clear { border:0; border-radius:5px; min-height:36px; padding:8px 14px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; background:transparent; color:inherit; }
+.strategy-view-switch button[aria-pressed="true"] { background:#c9f574; color:#101b15; }
+.strategy-clear { border:1px solid #6b7971; }
+.audit-legend { display:flex; flex-wrap:wrap; gap:8px 20px; font-size:12px; padding:16px 0 4px; color:#c7d1c9; }
+.audit-count { font-size:12px; color:#a9b9ae; margin:0 0 14px; line-height:1.7; }
+.audit-table-wrap { overflow:auto; width:100%; border:1px solid #45574a; border-radius:9px; }
+.audit-table { width:100%; min-width:1080px; border-collapse:collapse; font-size:13px; text-align:left; }
+.audit-table th,.audit-table td { padding:13px 12px; border-bottom:1px solid #35463a; vertical-align:middle; }
+.audit-table thead { background:#243227; }
+.audit-table thead th { font-size:11px; color:#c9dbcc; white-space:nowrap; }
+.audit-table tbody th { min-width:175px; font-size:13px; font-weight:700; }
+.audit-table td small { display:block; color:#a6b6ac; margin-top:5px; font-size:11px; }
+.audit-table tr:last-child td,.audit-table tr:last-child th { border-bottom:0; }
+.audit-table tbody tr:hover { background:rgba(201,245,116,.05); }
+.audit-table button,.audit-card button,.audit-next-actions button { padding:7px 9px; background:transparent; border:1px solid #819768; color:#c9f574; border-radius:5px; cursor:pointer; font:inherit; font-size:12px; white-space:nowrap; }
+.implementation-tags { display:flex; flex-wrap:wrap; gap:5px; }
+.implementation-tag { display:inline-block; padding:4px 6px; border:1px solid #53634c; border-radius:4px; font-size:10px; white-space:nowrap; }
+.audit-status { display:inline-block; padding:5px 8px; border-radius:5px; font-size:11px; font-weight:700; white-space:nowrap; background:#35473a; color:#d4e5d8; }
+.audit-status[data-status="已验证"] { background:#c9f574; color:#172412; }
+.audit-status[data-status="已观察到"] { background:#294c3d; color:#ccefe0; }
+.audit-status[data-status="有线索"] { background:#504625; color:#f5dea1; }
+.audit-status[data-status="无法确认"] { background:#403b3e; color:#d6c8cf; }
+.audit-board { display:flex; gap:15px; overflow-x:auto; overscroll-behavior-x:contain; padding:0 0 16px; scroll-snap-type:x proximity; }
+.audit-column { flex:0 0 265px; min-width:0; background:#18241d; border:1px solid #3e5343; border-radius:9px; padding:12px; scroll-snap-align:start; }
+.audit-column header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #3e5343; margin-bottom:12px; padding:3px 2px 12px; }
+.audit-column header h3 { margin:0; font-size:14px; color:#c9f574; }
+.audit-column header b { font-size:12px; border-radius:20px; padding:4px 8px; background:#35473a; }
+.audit-card { padding:13px; margin-bottom:10px; background:#26332a; border:1px solid #415644; border-radius:7px; }
+.audit-card > div:first-child { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.audit-card h4 { margin:12px 0 8px; font-size:14px; line-height:1.5; }
+.audit-card p { margin:8px 0; font-size:11px; line-height:1.6; color:#bfd0c4; }
+.audit-card button { width:100%; margin-top:6px; text-align:left; }
+.audit-empty { padding:20px 10px; font-size:12px; line-height:1.6; color:#9faf9f; }
+.audit-next-actions { margin-top:28px; }
+.audit-next-actions > h3 { color:#c9f574; font-size:16px; }
+.audit-next-actions > div { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+.audit-next-actions article { padding:16px; background:#233027; border:1px solid #3d5142; border-radius:8px; }
+.audit-next-actions h4 { font-size:14px; margin:12px 0 8px; }
+.audit-next-actions p { font-size:12px; color:#becdc1; line-height:1.8; }
+.detail-tags { display:flex; flex-wrap:wrap; gap:6px; padding:14px 20px; }
+.detail-tags span { padding:5px 8px; border:1px solid #bbb; border-radius:5px; font-size:11px; }
+.detail-evidence { background:#edf3e6; padding:20px; border-top:2px solid #111; border-bottom:2px solid #111; }
+.detail-evidence h4 { margin:0 0 10px; font-size:14px; }
+.detail-evidence p { margin:8px 0; font-size:13px; line-height:1.8; overflow-wrap:anywhere; }
+.detail-evidence .strategy-source { color:#18251b; }
+.detail-evidence .strategy-source a { color:#365a21; }
+.reference-boundary { padding:12px 16px; font-size:12px; line-height:1.7; background:#f5f5eb; color:#5c5d4b; border:1px solid #ddd; }
+.coverage-warning { font-size:12px!important; color:#e8c688!important; }
+.diagnostic-coverage > span { color:#b5c7b8; }
+.strategy-library .strategy-controls { color:#222; }
+.strategy-library .audit-count { color:#5d675d; }
+.strategy-library .audit-table-wrap { border:2px solid #191919; }
+.strategy-library .audit-table { background:white; color:#191919; }
+.strategy-library .audit-table thead { background:#111; }
+.strategy-library .audit-table td,.strategy-library .audit-table th { border-bottom-color:#ddd; }
+.strategy-library .audit-table td small { color:#657266; }
+.strategy-library .audit-table button { color:#191919; border-color:#191919; }
+.strategy-library .implementation-tag { border-color:#b8bfb3; }
+.strategy-library .audit-column { background:#f4f5ef; color:#181818; border:2px solid #181818; border-radius:4px; }
+.strategy-library .audit-column header { border-bottom-color:#999; }
+.strategy-library .audit-column header h3 { color:#191919; }
+.strategy-library .audit-column header b { background:#e0e9c5; }
+.strategy-library .audit-card { background:white; border-color:#ccc; box-shadow:2px 2px 0 #222; }
+.strategy-library .audit-card p { color:#657266; }
+.strategy-library .audit-card button { color:#222; border-color:#222; }
+.strategy-library .audit-empty { color:#657266; }
+.audit-board:focus-visible,.audit-table-wrap:focus-visible,.strategy-controls button:focus-visible { outline:3px solid #ff542f; outline-offset:3px; }
+@media(max-width:640px) {
+  .strategy-controls { gap:9px; }
+  .strategy-controls label { flex:1 1 105px; }
+  .strategy-controls select { width:100%; max-width:none; }
+  .strategy-view-switch { flex:1 1 100%; }
+  .strategy-view-switch button { flex:1; }
+  .audit-column { flex-basis:245px; }
+  .audit-next-actions > div { grid-template-columns:1fr; }
+  .audit-legend { gap:8px; font-size:11px; }
+}
+.captured-evidence { display:block; width:100%; border:1px solid #999; border-radius:5px; }
+.detail-evidence figure { margin:14px 0 0; }
+.detail-evidence figcaption { margin:8px 0; font-size:11px; line-height:1.6; color:#657266; }
+.verified-case { margin:0; padding:22px; border-top:2px solid #111; border-bottom:2px solid #111; background:#f2f6e7; }
+.verified-case img { width:100%; display:block; border:1px solid #222; margin:14px 0; }
+.verified-case h4 { margin:12px 0; font-size:18px; }
+.verified-case figcaption,.verified-case p { font-size:12px; line-height:1.8; color:#59614c; }
+.verified-case a { color:#315a20; font-size:13px; font-weight:700; }
+.verified-case-zoom { display:block; width:100%; padding:0; border:0; background:transparent; cursor:zoom-in; }
+.case-proof-label { display:inline-block; background:#111; color:#d0f884; padding:7px 10px; font-size:11px; }
