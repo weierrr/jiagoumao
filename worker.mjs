@@ -1,6 +1,7 @@
 import http from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { runInteractiveJourney } from './lib/journey.mjs'
+import { aggregateJourneys } from './lib/journey-result.mjs'
 
 const PORT = Number(process.env.PORT || process.env.WORKER_PORT || 8787)
 const MAX_QUEUE = Number(process.env.WORKER_MAX_QUEUE || 2)
@@ -25,21 +26,19 @@ function pump() {
     job.startedAt = Date.now()
     const controllers = job.urls.map(() => new AbortController())
     const task = Promise.allSettled(job.urls.map((url, index) => runInteractiveJourney(url, { signal: controllers[index].signal })))
-    const timeout = setTimeout(() => controllers.forEach(controller => controller.abort()), JOB_TIMEOUT_MS)
+    const budget = Math.max(1,Math.min(JOB_TIMEOUT_MS,job.deadline - Date.now() - 2000))
+    const timeout = setTimeout(() => controllers.forEach(controller => controller.abort()), budget)
+    let deadline
     Promise.race([
       task,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('浏览器 Worker 执行超过 55 秒，已主动终止')), JOB_TIMEOUT_MS + 250))
+      new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error('浏览器 Worker 执行超时，已主动终止')), budget + 2000) })
     ])
       .then(runs => {
-        const completed = runs.filter(run => run.status === 'fulfilled').map(run => run.value)
-        if (!completed.length) throw runs[0]?.reason || new Error('浏览器实验失败')
-        const findings = [...new Map(completed.flatMap(run => run.findings || []).map(item => [item.id, item])).values()]
-        const sampleMatches = findings.map(item => ({ id: item.id, samples: completed.filter(run => (run.findings || []).some(found => found.id === item.id)).length }))
-        job.result = { ...completed[0], findings, sampleCount: completed.length, sampleTotal: job.urls.length, sampleMatches, sampleRuns: completed.map(run => ({ product: run.product, status: run.status, durationMs: run.durationMs })) }
+        job.result = aggregateJourneys(job.urls, runs)
         job.status = 'completed'
       })
       .catch(error => { job.status = 'failed'; job.error = error.message || '浏览器实验失败'; console.error(`[job ${job.id}]`, error) })
-      .finally(() => { clearTimeout(timeout); job.finishedAt = Date.now(); active -= 1; pump() })
+      .finally(() => { clearTimeout(timeout); clearTimeout(deadline); job.finishedAt = Date.now(); active -= 1; pump() })
   }
 }
 
@@ -53,7 +52,7 @@ setInterval(() => {
 function body(req) {
   return new Promise((resolve, reject) => {
     let raw = ''
-    req.on('data', chunk => { raw += chunk; if (raw.length > 4096) reject(new Error('请求体过大')) })
+    req.on('data', chunk => { raw += chunk; if (raw.length > 4096) { req.pause(); reject(new Error('请求体过大')) } })
     req.on('end', () => { try { resolve(JSON.parse(raw || '{}')) } catch { reject(new Error('请求 JSON 无效')) } })
     req.on('error', reject)
   })
@@ -69,7 +68,9 @@ const server = http.createServer(async (req, res) => {
       if (!urls.length) return json(res, 400, { error: '请输入有效的公开店铺或商品 URL' })
       if (active + queue.length >= MAX_QUEUE) return json(res, 429, { error: '浏览器 Worker 当前繁忙，请稍后重试' })
       const id = randomUUID()
-      jobs.set(id, { id, urls, status: 'queued', createdAt: Date.now() })
+      const deadline = Math.min(Number(payload.deadline) || Date.now() + JOB_TIMEOUT_MS,Date.now() + JOB_TIMEOUT_MS)
+      if (deadline <= Date.now()) return json(res,400,{error:'任务等待时间已过期，请重试'})
+      jobs.set(id, { id, urls, deadline, status: 'queued', createdAt: Date.now() })
       queue.push(id); pump()
       return json(res, 202, { id, status: 'queued' })
     } catch (error) { return json(res, 400, { error: error.message }) }

@@ -1,4 +1,7 @@
 import './styles.css'
+import drawerCaseImage from './cases/silix-cart-drawer-20260926.jpg'
+import { strategyMeta, normalizeStatus } from '../lib/strategy-meta.mjs'
+import { applyJourneyToReport, formatMoney } from '../lib/report.mjs'
 
 let catalog = []
 let storeMap = {}
@@ -10,6 +13,9 @@ const handoffUrl = handoffParams.get('url') || ''
 const handoffFrom = handoffParams.get('from') || ''
 
 const state = {
+  diagnosticView: localStorage.getItem('jiagoumao-diagnostic-view') === 'board' ? 'board' : 'table',
+  libraryView: localStorage.getItem('jiagoumao-library-view') === 'table' ? 'table' : 'board',
+  diagnosticFilters: {}, libraryFilters: {},
   query: handoffUrl, category: '全部品类', sort: '默认排序', view: 'grid',
   favorites: new Set(JSON.parse(localStorage.getItem('add-to-cart-cat-favorites') || localStorage.getItem('scope-cat-favorites') || '[]')),
   compare: new Set(), modal: null, loading: false, journeyLoading: false, journeyError: '', journeyExpanded: false, error: '', dataMode: 'idle', sourceUrl: '', activeStrategyId: null, processStartedAt: 0
@@ -26,14 +32,7 @@ const isStrategiesPage = () => /(?:\/jiagoumao)?\/strategies\/?$/i.test(window.l
 const screenshotUrl = url => `https://image.thum.io/get/width/1200/crop/760/noanimate/${url}`
 
 function firstPrinciples(p) {
-  const title = `${p.name} ${p.description || ''} ${(p.sellingPoints || []).join(' ')}`.toLowerCase()
-  const isSport = /运动|跑步|户外|防水|openrun|fieldtone/.test(title)
-  const isPremium = Number(p.price) >= 120
-  const problem = isSport ? '在运动场景下兼顾稳固佩戴、环境感知与防护' : isPremium ? '为愿意付溢价的用户，降低噪音、连接或长时间使用的摩擦' : '用更低的尝试成本解决日常使用中的便携、连接或音质问题'
-  const mechanism = isSport ? '场景化功能（防脱 / 防水 / 环境感知）+ 运动内容建立信任' : isPremium ? '明确的性能参数 + 高客单价设计感 + 品牌信任支撑价格' : '低门槛价格 + 直观卖点 + 多场景内容降低首次购买顾虑'
-  const copy = (p.sellingPoints || []).slice(0, 3).join('、') || '商品页面的核心卖点'
-  const verify = isPremium ? '验证用户是否愿意为核心性能支付当前价格，并核对差评中的真实痛点。' : '验证低价卖点是否带来真实点击与购买，而不是只带来低质量流量。'
-  return { problem, mechanism, copy, verify, confidence: p.sourceType === 'live' ? '观察与推断' : '演示推断' }
+  return { problem:'公开商品字段不足以证明用户动机，需结合用户评论或访谈验证。', mechanism:'本页仅展示公开价格与选项；成交原因仍未确认。', copy:(p.sellingPoints || []).join('、') || '公开选项未提供', verify:'核对用户实际需求、差评、毛利和售后反馈，再决定是否复用该方案。', confidence:'待研究' }
 }
 
 const icons = {
@@ -387,11 +386,12 @@ const REAL_SCENE_LINKS = {
 }
 
 function strategyDemoTemplate(id, name) {
+  if (id === 'cart-drawer') return `<figure class="verified-case"><span class="case-proof-label">已验证的公开场景 · 2026-09-26</span><h4>Silix · 加购后购物车抽屉</h4><button type="button" class="verified-case-zoom" data-zoom-image="${drawerCaseImage}" data-zoom-title="Silix · 已验证的购物车抽屉" data-zoom-url="https://silixwear.com/products/silix-flexsupport-compression-socks" aria-label="放大已验证场景截图"><img src="${drawerCaseImage}" alt="Silix 匿名会话真实加购后出现的购物车抽屉"></button><figcaption>商品页真实点击 Add to Cart，购物车件数由 0 变为 1，随后观察到抽屉。后续数量改为 2，未填写个人资料或提交订单。</figcaption><a href="https://silixwear.com/products/silix-flexsupport-compression-socks" target="_blank" rel="noopener">打开来源商品页 ↗</a><p>这个案例说明策略如何呈现，不证明 AOV 增长，也不代表其他地区或时间的体验。</p></figure>`
   const scene = REAL_SCENE_LINKS[id]
   const primary = scene.links[0]
-  const sceneLinks = scene.links.map(([brand, url]) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><span>${escapeHtml(brand)}</span><b>打开场景</b></a>`).join('')
+  const sceneLinks = scene.links.map(([brand, url]) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><span>${escapeHtml(brand)}</span><b>访问参考网站</b></a>`).join('')
   return `<div class="case-reference">
-    <div class="case-shot" aria-label="${escapeHtml(primary[0])} 公开页面参考">
+    <p class="reference-boundary">网站预览 · 场景待验证</p><div class="case-shot" aria-label="${escapeHtml(primary[0])} 公开页面参考">
       <div class="case-browser"><i></i><i></i><i></i><span>${escapeHtml(new URL(primary[1]).hostname.replace(/^www\./,''))}</span></div>
       <div class="case-image">
         <img src="${escapeHtml(screenshotUrl(primary[1]))}" alt="${escapeHtml(primary[0])} 公开页面截图" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.case-shot').classList.add('shot-failed');this.remove()">
@@ -409,8 +409,8 @@ function strategyDemoTemplate(id, name) {
       </div>
       <a class="case-open" href="${escapeHtml(primary[1])}" target="_blank" rel="noopener">查看公开页面</a>
     </div>
-    <aside class="demo-scenes">
-        <span>真实参照</span>
+    <aside class="demo-scenes"><p class="reference-boundary">以下为公开网站入口，尚未保存对应策略场景的操作证据。首页截图不证明该策略已配置，也不代表收入效果。</p>
+        <span>待验证的品牌参考</span>
         <p>${escapeHtml(scene.insight)}</p>
         <div>${sceneLinks}</div>
     </aside>
@@ -421,7 +421,7 @@ function flatStrategies() {
   let index = 0
   return STRATEGY_GROUPS.flatMap(group => group.strategies.map(([id, name]) => {
     index += 1
-    return { id, name, index, group: group.name, stage: group.stage }
+    return { ...strategyMeta(id), id, name, index, group: group.name, stage: group.stage }
   }))
 }
 
@@ -431,46 +431,33 @@ function strategyDetailTemplate(strategy) {
   return `<aside class="strategy-detail-drawer" aria-live="polite">
     <div class="strategy-detail-kicker"><span>${String(strategy.index).padStart(2, '0')}</span><b>${escapeHtml(strategy.stage)}</b></div>
     <h3>${escapeHtml(strategy.name)}</h3>
-    <p class="strategy-detail-subtitle">${escapeHtml(strategy.group)} · 看这个策略在真实电商页面里通常怎么出现。</p>
-    <div class="strategy-example"><div><small>配置前</small><p>${escapeHtml(example[0])}</p></div><div><small>配置后</small><p>${escapeHtml(example[1])}</p></div></div>
+    <p class="strategy-detail-subtitle">${escapeHtml(strategy.group)} · 先确认适用条件，再选择配置方式。</p>
+    <div class="detail-tags"><span>${escapeHtml(strategy.page)}</span><span>${escapeHtml(strategy.needsApp)}</span><span>${escapeHtml(strategy.difficulty)}难度</span><span>${escapeHtml(strategy.readiness)}</span></div>
+    ${strategy.status ? `<section class="detail-evidence"><h4>本次诊断 · ${escapeHtml(strategy.status)}</h4><p>${escapeHtml(strategy.evidence)}</p>${strategySourceTemplate(strategy)}${strategy.evidenceImage?.startsWith('data:image/jpeg;base64,') ? `<figure><img class="captured-evidence" src="${escapeHtml(strategy.evidenceImage)}" alt="本次匿名会话加购后截图"><figcaption>本次检查保存的匿名购物流程截图，可验证页面场景；不代表收入效果。</figcaption></figure>` : ''}${strategy.limitation ? `<p>检查限制：${escapeHtml(strategy.limitation)}</p>` : ''}</section>` : ''}
+    <div class="strategy-example"><div><small>配置前示意</small><p>${escapeHtml(example[0])}</p></div><div><small>配置后示意</small><p>${escapeHtml(example[1])}</p></div></div>
     ${strategyDemoTemplate(strategy.id, strategy.name)}
     <section class="config-guide" aria-labelledby="config-guide-title">
       <div class="config-guide-head"><span>HOW TO CONFIGURE</span><h4 id="config-guide-title">如何配置</h4></div>
       <div class="config-guide-body"><div><small>后台入口 / 首选方案</small><strong>${escapeHtml(tool)}</strong></div><div><small>配置步骤</small><p>${escapeHtml(steps)}</p></div></div>
     </section>
     ${toolResourceTemplate(strategy)}
+    <section class="config-guide"><div class="config-guide-head"><span>MEASURE THE CHANGE</span><h4>适用场景与验证</h4></div><div class="config-guide-body"><p>${escapeHtml(recommendationFor(strategy).recommendationAction)}</p><p>${escapeHtml(recommendationFor(strategy).recommendationMetric)}</p><p>作用方向：${escapeHtml(strategy.impact)}。没有已验证的增长比例，请先评估毛利与转化影响。</p></div></section>
   </aside>`
 }
 
 function strategyLibraryTemplate() {
   const strategies = flatStrategies()
-  return `<section class="strategy-library">
-    <div class="strategy-library-head">
-      <div><p class="eyebrow">FULL UPSELL PLAYBOOK</p><h2>覆盖全部 28 类客单价策略</h2><p>点击任一策略，查看配置前后、真实公开页面参考和放大截图。</p></div>
-      <div class="strategy-total"><strong>28</strong><span>类策略</span></div>
-    </div>
-    <div class="strategy-workbench">
-      <div class="strategy-list-panel">
-        <div class="strategy-groups">${STRATEGY_GROUPS.map(group => `<article class="strategy-group">
-          <header><span>${escapeHtml(group.stage)}</span><h3>${escapeHtml(group.name)}</h3><b>${group.strategies.length}</b></header>
-          <div>${group.strategies.map(([id,name]) => {
-            const item = strategies.find(x => x.id === id)
-            return `<button type="button" class="strategy-item idle" data-strategy-id="${escapeHtml(id)}">
-              <span class="strategy-no">${String(item.index).padStart(2, '0')}</span><strong>${escapeHtml(name)}</strong><em>查看详情</em><b aria-hidden="true">›</b>
-            </button>`
-          }).join('')}</div>
-        </article>`).join('')}</div>
-      </div>
-    </div>
-  </section>`
+  return `<section class="strategy-library"><div class="strategy-library-head"><div><p class="eyebrow">FULL UPSELL PLAYBOOK</p><h2>28 类客单价策略</h2><p>按页面和实施方式筛选，查看配置说明、示意与待验证参考。</p></div><div class="strategy-total"><strong>28</strong><span>类策略</span></div></div>${strategyControls(strategies,'library')}<p class="audit-count">显示 ${filteredStrategies(strategies,'library').length} / 28 项</p>${strategyRowsTemplate(strategies,'library')}</section>`
 }
 
 function strategyDrawerTemplate() {
-  const strategy = flatStrategies().find(item => item.id === state.activeStrategyId)
+  const base = flatStrategies().find(item => item.id === state.activeStrategyId)
+  const observed = Object.values(storeMap)[0]?.upsell?.strategies.find(item => item.id === state.activeStrategyId)
+  const strategy = base && {...base,...observed}
   if (!strategy) return ''
   return `<div class="strategy-drawer-layer" role="presentation">
     <button class="strategy-drawer-backdrop" data-close-strategy-drawer aria-label="关闭策略详情"></button>
-    <section class="strategy-drawer-panel" role="dialog" aria-modal="true" aria-label="${escapeHtml(strategy.name)}策略详情">
+    <section class="strategy-drawer-panel" data-open-strategy="${escapeHtml(strategy.id)}" role="dialog" aria-modal="true" aria-label="${escapeHtml(strategy.name)}策略详情">
       <button class="strategy-drawer-close" data-close-strategy-drawer aria-label="关闭策略详情">${icons.close}</button>
       ${strategyDetailTemplate(strategy)}
     </section>
@@ -529,8 +516,8 @@ function productCard(p) {
       <div class="brand-row"><span>${escapeHtml(p.brand)}</span>${p.trend == null ? '<span class="live-source">公开目录</span>' : `<span class="trend">示例信号</span>`}</div>
       <h3>${escapeHtml(p.name)}</h3>
       <p class="store-domain">${escapeHtml(p.store)}</p>
-      <div class="price-row"><strong>${p.price ? `US$${p.price}` : '价格未公开'}</strong>${p.compareAt ? `<del>US$${p.compareAt}</del>` : ''}${p.rating ? `<span class="rating">★ ${p.rating} <small>(${p.reviews.toLocaleString()})</small></span>` : '<span class="rating neutral">暂无公开评分</span>'}</div>
-      <div class="signal-row"><span><i style="width:${p.confidence}%"></i></span><small>数据可信度 ${p.confidence}% · ${p.updated}</small></div>
+      <div class="price-row"><strong>${p.price ? formatMoney(p.price,p.currency) : '价格未公开'}</strong>${p.compareAt ? `<del>${formatMoney(p.compareAt,p.currency)}</del>` : ''}${p.rating ? `<span class="rating">★ ${p.rating} <small>(${p.reviews.toLocaleString()})</small></span>` : '<span class="rating neutral">暂无公开评分</span>'}</div>
+      <div class="signal-row"><span><i style="width:${p.confidence == null ? '未评估' : p.confidence + '%'}"></i></span><small>数据可信度 ${p.confidence == null ? '未评估' : p.confidence + '%'} · ${p.updated}</small></div>
       <div class="card-actions">
         <button class="text-button" data-action="detail">商品透视 ${icons.arrow}</button>
         <button class="compare-button ${compared ? 'active' : ''}" data-action="compare">${compared ? icons.check + ' 已加入' : icons.compare + ' 对比'}</button>
@@ -548,7 +535,7 @@ function publicEvidenceTemplate(list) {
   const discounted = list.filter(p => Number(p.compareAt) > Number(p.price)).length
   const categories = [...new Set(list.map(p => p.category).filter(Boolean))]
   const samples = list.slice(0, 6)
-  const priceRange = minPrice && maxPrice ? `US$${minPrice}–${maxPrice}` : '价格未完整公开'
+  const priceRange = minPrice && maxPrice ? `${formatMoney(minPrice, list[0]?.currency)}–${formatMoney(maxPrice, list[0]?.currency)}` : '价格未完整公开'
   return `<section class="evidence-section">
     <div class="evidence-head">
       <div><p class="eyebrow">PUBLIC PRODUCT EVIDENCE</p><h2>${storeName} 的商品证据采样</h2><p>公开商品不再作为浏览列表展示，只作为本次客单价诊断的证据来源。</p></div>
@@ -564,7 +551,7 @@ function publicEvidenceTemplate(list) {
       <summary><span>查看采样商品</span><b>${samples.length} 个样本</b></summary>
       <div>${samples.map(p => `<article class="evidence-sample">
         <i style="${visualStyle(p)}"></i>
-        <div><strong>${escapeHtml(p.name)}</strong><span>${p.price ? `US$${p.price}` : '价格未公开'}${p.compareAt ? ` · 原价 US$${p.compareAt}` : ''}</span><p>${escapeHtml((p.sellingPoints || []).slice(0, 2).join(' / ') || p.description || '公开商品样本')}</p></div>
+        <div><strong>${escapeHtml(p.name)}</strong><span>${p.price ? formatMoney(p.price,p.currency) : '价格未公开'}${p.compareAt ? ` · 对比价 ${formatMoney(p.compareAt,p.currency)}` : ''}</span><p>${escapeHtml((p.sellingPoints || []).slice(0, 2).join(' / ') || p.description || '公开商品样本')}</p></div>
         <button data-sample-detail="${escapeHtml(p.id)}">商品证据</button>
       </article>`).join('')}</div>
     </details>
@@ -573,7 +560,7 @@ function publicEvidenceTemplate(list) {
 
 function strategySourceTemplate(strategy) {
   const isInteractive = strategy.sourceStep || /^交互验证/.test(strategy.evidence || '')
-  const label = isInteractive ? `强证据 · 真实流程 · ${strategy.sourceStep || '交互步骤'}` : `${strategy.evidenceLevel || '中证据'} · 静态扫描 · ${strategy.sourceLabel || '公开页面'}`
+  const label = isInteractive ? `${strategy.evidenceLevel || '浏览器观察'} · ${strategy.sourceStep || '浏览器步骤'}` : `${strategy.evidenceLevel || '中证据'} · 静态扫描 · ${strategy.sourceLabel || '公开页面'}`
   const copy = isInteractive
     ? (strategy.sourceEvidence || '真实购物流程中观察到该策略信号。')
     : (strategy.sourceUrl ? '证据正文已在上方展示；点击可打开本次命中的公开页面。' : '该线索来自源码字段，暂时没有可直接定位的可见页面。')
@@ -585,33 +572,62 @@ function strategySourceTemplate(strategy) {
   </div>`
 }
 
+function strategyControls(items, scope) {
+  const filters = state[`${scope}Filters`]
+  const view = state[`${scope}View`]
+  const select = (key,label,values) => `<label>${label}<select data-strategy-filter="${key}" data-scope="${scope}" aria-label="${label}"><option value="">全部</option>${values.map(value => `<option value="${escapeHtml(value)}" ${filters[key] === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select></label>`
+  return `<div class="strategy-controls">
+    <div class="strategy-view-switch" role="group" aria-label="展示模式"><button type="button" data-strategy-view="table" data-scope="${scope}" aria-pressed="${view === 'table'}">表格</button><button type="button" data-strategy-view="board" data-scope="${scope}" aria-pressed="${view === 'board'}">看板</button></div>
+    ${select('page','页面',[...new Set(items.map(item => item.page))])}
+    ${select('group','类型',[...new Set(items.map(item => item.group))])}
+    ${scope === 'diagnostic' ? select('status','状态',['已验证','已观察到','有线索','未观察到','无法确认']) : ''}
+    ${select('needsApp','App',[...new Set(items.map(item => item.needsApp))])}
+    ${select('difficulty','难度',['低','中','较高'])}
+    <label>排序<select data-strategy-filter="sort" data-scope="${scope}" aria-label="策略排序"><option value="">默认</option><option value="priority" ${filters.sort === 'priority' ? 'selected' : ''}>优先级</option><option value="difficulty" ${filters.sort === 'difficulty' ? 'selected' : ''}>实施难度</option></select></label>
+    <button type="button" class="strategy-clear" data-clear-strategy-filters="${scope}">重置筛选</button>
+  </div>`
+}
+
+function filteredStrategies(items,scope) {
+  const filters = state[`${scope}Filters`]
+  let result = items.filter(item => Object.entries(filters).every(([key,value]) => !value || key === 'sort' || item[key] === value))
+  const priorityOrder = {'高':0,'中':1,'低':2}
+  const difficultyOrder = {'低':0,'中':1,'较高':2}
+  if (filters.sort === 'priority') result.sort((a,b) => priorityOrder[a.priority] - priorityOrder[b.priority])
+  if (filters.sort === 'difficulty') result.sort((a,b) => difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty])
+  return result
+}
+
+function strategyRowsTemplate(items,scope) {
+  const library = scope === 'library'
+  const rows = filteredStrategies(items,scope)
+  const action = item => `<button type="button" data-strategy-id="${escapeHtml(item.id)}">${library ? '配置与示例' : '证据与建议'} ↗</button>`
+  const status = item => `<span class="audit-status" data-status="${escapeHtml(item.status || '参考策略')}">${escapeHtml(item.status || '参考策略')}</span>`
+  const tags = item => `<span class="implementation-tag">${escapeHtml(item.needsApp)}</span><span class="implementation-tag">开发：${escapeHtml(item.needsDevelopment)}</span>`
+  const empty = '<p class="audit-empty">没有符合筛选条件的策略。可以重置筛选查看全部。</p>'
+  if (state[`${scope}View`] === 'table') return `<div class="audit-table-wrap" tabindex="0" aria-label="策略表格，可横向滚动"><table class="audit-table"><thead><tr><th>策略</th><th>页面 / 类型</th><th>状态</th><th>参考优先级</th><th>难度 / 条件</th><th>实施方式</th><th>作用方向</th><th>详情</th></tr></thead><tbody>${rows.map(item => `<tr><th scope="row">${escapeHtml(item.name)}</th><td>${escapeHtml(item.page)}<small>${escapeHtml(item.group)}</small></td><td>${status(item)}</td><td><span class="priority ${item.priority === '高' ? 'high' : ''}">${escapeHtml(item.priority)}</span></td><td>${escapeHtml(item.difficulty)}<small>${escapeHtml(item.readiness)}</small></td><td><div class="implementation-tags">${tags(item)}</div></td><td>${escapeHtml(item.impact)}</td><td>${action(item)}</td></tr>`).join('')}</tbody></table>${rows.length ? '' : empty}</div>`
+  const groups = library ? [...new Set(items.map(item => item.page))] : ['已验证','已观察到','有线索','未观察到','无法确认']
+  return `<div class="audit-board" tabindex="0" aria-label="横向策略看板，可横向滚动">${groups.map(group => {
+    const cards = rows.filter(item => library ? item.page === group : item.status === group)
+    return `<section class="audit-column"><header><h3>${escapeHtml(group)}</h3><b>${cards.length}</b></header>${cards.map(item => `<article class="audit-card"><div>${status(item)}<span class="priority ${item.priority === '高' ? 'high' : ''}">${escapeHtml(item.priority)}优先</span></div><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.page)} · ${escapeHtml(item.group)}</p><div class="implementation-tags">${tags(item)}</div><p>${escapeHtml(item.difficulty)}难度 · ${escapeHtml(item.impact)}</p>${action(item)}</article>`).join('') || '<p class="audit-empty">暂无符合条件的策略</p>'}</section>`
+  }).join('')}</div>`
+}
+
 function diagnosticTemplate() {
-  if (state.dataMode !== 'live' || state.loading || state.journeyLoading) return ''
+  if (state.dataMode !== 'live' || state.loading) return ''
   const store = Object.values(storeMap)[0]
   const report = store?.upsell
   if (!report) return ''
-  const observed = report.strategies.filter(x => ['已验证', '有线索', '已发现'].includes(x.status))
-  const unconfirmed = report.strategies.filter(x => x.status === '无法确认')
+  const items = report.strategies.map(item => ({...strategyMeta(item.id),...item,status:normalizeStatus(item.status)}))
   const opportunities = (report.opportunities || []).map(recommendationFor)
-  const diagnosticUrl = state.sourceUrl || store?.sourceUrl || ''
-  let diagnosticUrlLabel = diagnosticUrl
-  try {
-    const parsed = new URL(diagnosticUrl)
-    diagnosticUrlLabel = `${parsed.host}${parsed.pathname !== '/' ? parsed.pathname : ''}`
-  } catch {}
   return `<section class="diagnostic-panel">
-    <div class="diagnostic-head"><div><a class="eyebrow diagnostic-source-url" href="${escapeHtml(diagnosticUrl || '#')}" ${diagnosticUrl ? 'target="_blank" rel="noopener"' : ''} title="打开当前诊断店铺">${escapeHtml(diagnosticUrlLabel || '当前诊断店铺')}</a><h2>客单价策略诊断</h2><p>${escapeHtml(report.summary)}</p>${report.coverage?.products?.length ? `<div class="diagnostic-coverage"><span>本次覆盖商品</span>${report.coverage.products.map(product => `<b>${escapeHtml(product.segment)} · ${escapeHtml(product.title || '未命名商品')}</b>`).join('')}</div>` : ''}</div><div class="diagnostic-score"><strong>${report.foundCount}<small>/${report.total}</small></strong><span>观察到的线索</span></div></div>
-    <div class="diagnostic-columns"><div><h3>已验证 / 有线索</h3><div class="strategy-list">${observed.length ? observed.map((x,index)=>{
-      const label = x.status === '已发现' ? '有线索' : x.status
-      const evidenceTypes = (x.evidenceTypes || []).join(' + ')
-      const coverage = (x.coverage || []).join(' / ')
-      const sampleCoverage = x.sampleTotal ? `<span>商品验证：${x.sampleHits} / ${x.sampleTotal}</span>` : ''
-      const interaction = x.interactionLevel ? `<span>动作：${escapeHtml(x.interactionLevel)}</span>` : ''
-      return `<article class="strategy-card found evidence-${x.status === '已验证' ? 'strong' : 'medium'}"><div><span class="strategy-index">${String(index + 1).padStart(2, '0')}</span><span class="evidence-pill">${escapeHtml(label)}</span><strong>${escapeHtml(x.name)}</strong><em>${escapeHtml(x.group)} · ${escapeHtml(x.evidenceLevel || (x.status === '已验证' ? '强证据' : '中证据'))}</em></div><p>${escapeHtml(x.evidence)}</p><div class="evidence-meta">${evidenceTypes ? `<span>证据：${escapeHtml(evidenceTypes)}</span>` : ''}${coverage ? `<span>覆盖：${escapeHtml(coverage)}</span>` : ''}${interaction}${sampleCoverage}</div>${strategySourceTemplate(x)}</article>`
-    }).join('') : '<p class="muted">本次公开会话暂未观察到明确的 Upsell 信号。</p>'}</div></div>
-      <div><h3>下一步增长建议</h3><div class="strategy-list">${opportunities.map((x,index)=>`<article class="strategy-card opportunity"><div><span class="strategy-index">${String(index + 1).padStart(2, '0')}</span><span class="priority ${x.priority === '高' ? 'high' : ''}">${x.priority}优先</span><strong>${escapeHtml(x.recommendationTitle)}</strong><em>${escapeHtml(x.name)}</em></div><p><b>建议：</b>${escapeHtml(x.recommendationAction)}</p><p><b>验证：</b>${escapeHtml(x.recommendationMetric)}</p><button type="button" class="strategy-example-link" data-strategy-id="${escapeHtml(x.id)}"><span>策略示例</span><b>查看配置前后与真实参考 ›</b></button></article>`).join('')}</div></div></div>
-    ${unconfirmed.length ? `<div class="unconfirmed-strip"><strong>无法确认</strong>${unconfirmed.map(x=>`<span>${escapeHtml(x.name)}：${escapeHtml(x.evidence)}</span>`).join('')}</div>` : ''}
-    <div class="diagnostic-note"><span>证据边界</span><p>“已验证”表示真实买家路径中观察到页面文案或行为变化；“有线索”表示公开页面或源码命中；“未观察到”不代表后台一定没有配置。当前扫描覆盖公开首页、购物车页和代表性商品路径。</p></div>
+    <div class="diagnostic-head"><div><a class="eyebrow diagnostic-source-url" href="${escapeHtml(store.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(store.domain)}</a><h2>客单价策略诊断</h2><p>${escapeHtml(report.summary)}</p><div class="diagnostic-coverage"><span>已读取商品页</span>${(report.coverage?.products || []).map(product => `<b>${escapeHtml(product.segment)} · ${escapeHtml(product.title)}</b>`).join('')}</div>${report.coverage?.samples?.some(item => item.status === 'failed') ? `<details class="coverage-warning"><summary>部分商品页读取失败，查看记录</summary>${report.coverage.samples.filter(item => item.status === 'failed').map(item => `<p>${escapeHtml(item.title)}：${escapeHtml(item.error || '未完成读取')}</p>`).join('')}</details>` : ''}</div><div class="diagnostic-score"><strong>${report.foundCount}<small>/${report.total}</small></strong><span>线索覆盖，不是效果评分</span></div></div>
+    <div class="audit-legend"><span>已验证：动作触发</span><span>已观察到：浏览器可见</span><span>有线索：静态待验证</span><span>未观察到 ≠ 没有配置</span></div>
+    ${strategyControls(items,'diagnostic')}
+    <p class="audit-count">显示 ${filteredStrategies(items,'diagnostic').length} / ${items.length} 项 · 参考优先级基于实施方式，需结合品类、毛利与真实订单验证。</p>
+    ${strategyRowsTemplate(items,'diagnostic')}
+    <section class="audit-next-actions"><h3>下一步可评估的动作</h3><div>${opportunities.map(item => `<article><span class="priority ${item.priority === '高' ? 'high' : ''}">${escapeHtml(item.priority)}优先</span><h4>${escapeHtml(item.recommendationTitle)}</h4><p>${escapeHtml(item.recommendationAction)}</p><button type="button" data-strategy-id="${escapeHtml(item.id)}">查看实施与验证方法 ↗</button></article>`).join('') || '<p>当前没有可直接推荐的缺口。请先确认无法检查的阶段。</p>'}</div></section>
+    <div class="diagnostic-note"><span>证据边界</span><p>公开页面不能证明真实 AOV 或收入效果。浏览器可见不等于行为已验证；未完成的阶段标为“无法确认”。所有建议都需要结合经营数据评估。</p></div>
   </section>`
 }
 
@@ -624,9 +640,9 @@ function journeyTemplate() {
   const statusText = { passed:'已验证', partial:'部分完成', blocked:'无法进入' }
   return `<section class="journey-panel">
     <div class="journey-heading"><div><p class="eyebrow">REAL BROWSER / INTERACTIVE VERIFICATION</p><h2>真实购物流程证据</h2><p>使用独立 Chromium 匿名会话执行，不填写个人信息、不提交订单。</p></div><div class="journey-meta"><strong>${Math.round((journey.durationMs || 0) / 1000)}s</strong><span>${escapeHtml(journey.engine)}</span></div></div>
-    <div class="journey-steps">${journey.steps.map((step,index)=>`<article class="journey-step ${step.status}"><div><b>0${index+1}</b><span class="journey-status ${step.status}">${statusText[step.status] || step.status}</span></div><h3>${escapeHtml(step.label)}</h3><p>${escapeHtml(step.evidence)}</p>${step.url ? `<a href="${escapeHtml(step.url)}" target="_blank" rel="noopener">${escapeHtml(new URL(step.url).hostname + new URL(step.url).pathname)}</a>` : ''}</article>`).join('')}</div>
-    ${journey.findings?.length ? `<div class="journey-findings"><strong>交互命中的策略</strong><div>${journey.findings.map(item=>`<span><b>${escapeHtml(item.name)}</b>${escapeHtml(item.step)} · ${item.confidence}%</span>`).join('')}</div></div>` : ''}
-    ${journey.sampleRuns?.length > 1 ? `<div class="journey-samples"><strong>代表商品验证</strong><div>${journey.sampleRuns.map(item => item.status === 'failed' ? `<span class="is-failed">验证失败 · ${escapeHtml(item.stage || '未知阶段')} · ${escapeHtml(item.error || '未完成')}</span>` : `<span>已完成 · ${escapeHtml(item.product?.title || '代表商品')}</span>`).join('')}</div></div>` : ''}
+    <div class="journey-steps">${journey.steps.map((step,index)=>`<article class="journey-step ${step.status}"><div><b>0${index+1}</b><span class="journey-status ${step.status}">${statusText[step.status] || step.status}</span></div><h3>${escapeHtml(step.label)}</h3>${step.sampleTitle ? `<small>${escapeHtml(step.sampleTitle)}</small>` : ''}<p>${escapeHtml(step.evidence)}</p>${step.url ? `<a href="${escapeHtml(step.url)}" target="_blank" rel="noopener">${escapeHtml(new URL(step.url).hostname + new URL(step.url).pathname)}</a>` : ''}</article>`).join('')}</div>
+    ${journey.findings?.length ? `<div class="journey-findings"><strong>交互命中的策略</strong><div>${journey.findings.map(item=>`<span><b>${escapeHtml(item.name)}</b>${escapeHtml(item.step)} · ${item.verified ? '行为验证' : '页面观察'}</span>`).join('')}</div></div>` : ''}
+    ${journey.sampleRuns?.length > 1 ? `<div class="journey-samples"><strong>代表商品验证</strong><div>${journey.sampleRuns.map(item => item.status === 'failed' ? `<span class="is-failed">验证失败 · ${escapeHtml(item.stage || '未知阶段')} · ${escapeHtml(item.error || '未完成')}</span>` : `<span>${item.status === 'partial' ? '部分完成' : '已完成'} · ${escapeHtml(item.product?.title || '代表商品')}</span>`).join('')}</div></div>` : ''}
     <div class="journey-boundary"><strong>本次实验边界</strong><span>${escapeHtml(journey.boundary)}</span></div>
   </section>`
 }
@@ -679,29 +695,9 @@ function runningProcessTemplate(mode = 'static') {
 
 function applyJourney(journey) {
   const store = Object.values(storeMap)[0]
-  if (!store) return
+  if (!store?.upsell) return
   store.journey = journey
-  const report = store.upsell
-  if (!report?.strategies) return
-  const findings = new Map((journey.findings || []).map(item => [item.id, item]))
-  const sampleMatches = new Map((journey.sampleMatches || []).map(item => [item.id, item.samples]))
-  const unconfirmed = new Map((journey.unconfirmed || []).map(item => [item.id, item.reason]))
-  report.strategies = report.strategies.map(strategy => {
-    const finding = findings.get(strategy.id)
-    if (finding) {
-      const step = (journey.steps || []).find(item => item.evidence?.includes(finding.evidence) || item.label?.includes(finding.step) || finding.step?.includes(item.label))
-      const sampleTotal = journey.sampleTotal || journey.sampleCount || 1
-      const sampleHits = sampleMatches.get(strategy.id) || 1
-      return { ...strategy, status:'已验证', evidenceLevel:'强证据', confidence:finding.confidence, evidenceTypes:['真实行为','页面文案'], coverage:[finding.step], sampleHits, sampleTotal, evidence:`交互验证 · ${finding.step}：${finding.evidence}`, sourceStep:finding.step, sourceEvidence:finding.evidence, sourceUrl:step?.url || state.sourceUrl }
-    }
-    const reason = unconfirmed.get(strategy.id)
-    if (reason) return { ...strategy, status:'无法确认', evidenceLevel:'无法确认', confidence:35, evidence:reason }
-    return strategy
-  })
-  report.foundCount = report.strategies.filter(item => ['已验证', '有线索', '已发现'].includes(item.status)).length
-  report.opportunities = report.strategies.filter(item => item.status === '未观察到').slice(0,5).map((item,index) => ({ ...item, priority:index < 2 ? '高' : index < 4 ? '中' : '低' }))
-  const failedSamples = (journey.sampleRuns || []).filter(item => item.status === 'failed').length
-  report.summary = `静态页面与真实购物流程共观察到 ${report.foundCount} / ${report.total} 类客单价策略线索；已验证 ${journey.sampleCount || 1} / ${journey.sampleTotal || journey.sampleCount || 1} 个代表商品${failedSamples ? `，${failedSamples} 个商品验证失败` : ''}。`
+  applyJourneyToReport(store.upsell, journey)
 }
 
 async function readJsonResponse(response, fallbackMessage) {
@@ -778,6 +774,7 @@ function render() {
   // Preserve native disclosure state across progress-ticker re-renders.
   // Without this, the one-second progress refresh replaces the <details>
   // element and collapses an evidence section the user just opened.
+  const previousDrawerId = document.querySelector('.strategy-drawer-panel')?.dataset.openStrategy
   const evidenceSamplesOpen = document.querySelector('.evidence-samples')?.open ?? false
   const list = filteredProducts()
   const safeQuery = escapeHtml(state.query)
@@ -789,7 +786,7 @@ function render() {
         ${strategiesPage ? `${strategyLibraryTemplate()}` : `
         <section class="hero">
           <div class="hero-copy"><p class="eyebrow">选品猫产品家族 · SHOPIFY UPSELL DIAGNOSTIC</p><h1>扫描店铺<br><span>找出客单价增长点</span></h1><p>输入一个 Shopify 店铺，扫描商品页、加购动作和购物车流程。看清它已经在做什么，找到还可以补上的客单价增长动作。</p></div>
-          <div class="hero-metrics"><div><small>已索引商品</small><strong>2,840,631</strong><span>今日 +18,420</span></div><div><small>活跃品牌</small><strong>126,804</strong><span>覆盖 41 个国家</span></div></div>
+
           <form class="search-panel" id="search-form">
             <div class="scanner-icon">${icons.scan}</div>
             <input id="search-input" value="${safeQuery}" placeholder="粘贴 Shopify 店铺 / 商品 URL 开始诊断" autocomplete="off" />
@@ -801,9 +798,9 @@ function render() {
         </section>
         ${state.loading ? runningProcessTemplate('static') : ''}
         ${valuePropTemplate()}
+        ${diagnosticTemplate()}
         ${journeyTemplate()}
         ${reportTemplate()}
-        ${diagnosticTemplate()}
         ${publicEvidenceTemplate(list)}`}
       </main>
       ${state.compare.size ? `<div class="compare-dock"><div><span>${state.compare.size}</span><p><strong>已加入对比</strong><small>最多选择 3 件商品</small></p></div><div class="compare-thumbs">${[...state.compare].map(id=>{const p=catalog.find(x=>x.id===id);return p ? `<i style="${visualStyle(p)}" title="${escapeHtml(p.name)}"></i>` : ''}).join('')}</div><button id="clear-compare">清空</button><button id="open-compare" ${state.compare.size<2?'disabled':''}>生成对比报告 ${icons.arrow}</button></div>` : ''}
@@ -815,11 +812,14 @@ function render() {
   if (evidenceSamples) evidenceSamples.open = evidenceSamplesOpen
   bindEvents()
   syncProgressTicker()
+  if (state.modal) document.querySelector('.modal-layer .modal-close')?.focus()
+  else if (state.activeStrategyId) document.querySelector('.strategy-drawer-close')?.focus()
+  else if (previousDrawerId) document.querySelector(`[data-strategy-id="${previousDrawerId}"]`)?.focus()
 }
 
 function syncProgressTicker() {
   const isProcessing = state.loading || state.journeyLoading
-  if (isProcessing && !progressTimer) progressTimer = setInterval(render, 1000)
+  if (isProcessing && !progressTimer) progressTimer = setInterval(() => { const panel = document.querySelector('.process-board'); if (panel) panel.outerHTML = runningProcessTemplate(state.journeyLoading ? 'journey' : 'static') }, 1000)
   if (!isProcessing && progressTimer) {
     clearInterval(progressTimer)
     progressTimer = null
@@ -847,7 +847,7 @@ function modalTemplate() {
     return `<div class="modal-layer"><button class="modal-backdrop" data-close></button><section class="detail-panel">
       <button class="modal-close" data-close>${icons.close}</button>
       <div class="modal-visual" style="${visualStyle(p)}"><div class="scan-line"></div><span class="source-chip">${p.sourceType === 'live' ? '实时商品数据' : 'PRODUCT X-RAY'}</span>${p.imageUrl ? '' : '<div class="product-silhouette large"><span></span><span></span></div>'}</div>
-      <div class="modal-content"><p class="eyebrow">PRODUCT INTELLIGENCE / ${p.confidence}% CONFIDENCE</p><h2>${escapeHtml(p.name)}</h2><a href="${escapeHtml(p.sourceUrl || '#')}" target="_blank" rel="noopener">${escapeHtml(p.brand)} · ${escapeHtml(p.store)}</a><div class="modal-price"><strong>${p.price ? `US$${p.price}` : '价格未公开'}</strong><span>${p.rating ? `★ ${p.rating} · ${p.reviews.toLocaleString()} 条评价` : '公开数据未提供评分'}</span></div>
+      <div class="modal-content"><p class="eyebrow">PRODUCT INTELLIGENCE / ${p.confidence == null ? '未评估' : p.confidence + '%'} CONFIDENCE</p><h2>${escapeHtml(p.name)}</h2><a href="${escapeHtml(p.sourceUrl || '#')}" target="_blank" rel="noopener">${escapeHtml(p.brand)} · ${escapeHtml(p.store)}</a><div class="modal-price"><strong>${p.price ? formatMoney(p.price,p.currency) : '价格未公开'}</strong><span>${p.rating ? `★ ${p.rating} · ${p.reviews.toLocaleString()} 条评价` : '公开数据未提供评分'}</span></div>
       <p class="description">${escapeHtml(p.description)}</p><section class="principles-card"><div class="principles-head"><span>FIRST PRINCIPLES / 竞品机制</span><em>${fp.confidence}</em></div><div class="principle-grid"><article><small>它解决的真实问题</small><strong>${escapeHtml(fp.problem)}</strong></article><article><small>它的成交机制</small><strong>${escapeHtml(fp.mechanism)}</strong></article><article><small>可复制线索</small><strong>${escapeHtml(fp.copy)}</strong></article><article class="verify"><small>还没有被证明</small><strong>${escapeHtml(fp.verify)}</strong></article></div></section><h4>${p.sourceType === 'live' ? '公开商品选项' : 'AI 提炼的核心卖点'}</h4><ul class="selling-points">${p.sellingPoints.map((x,i)=>`<li><b>0${i+1}</b><span>${escapeHtml(x)}</span></li>`).join('')}</ul>
       <h4>结构化参数</h4><dl class="specs">${Object.entries(p.specs).map(([k,v])=>`<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl>
       <div class="data-note"><span>来源</span><strong>${p.sourceType === 'live' ? '店铺公开 Shopify JSON 接口' : '公开 Shopify 商品页'}</strong><span>更新</span><strong>${p.updated}</strong><span>口径</span><strong>${p.sourceType === 'live' ? '原始公开字段，不含销量估算' : '页面字段 + AI 结构化'}</strong></div></div>
@@ -856,16 +856,16 @@ function modalTemplate() {
   if (state.modal.type === 'store') {
     const s = storeMap[state.modal.id]
     return `<div class="modal-layer"><button class="modal-backdrop" data-close></button><section class="store-panel">
-      <button class="modal-close" data-close>${icons.close}</button><div class="store-head"><div class="store-logo">${s.name.split(' ').map(x=>x[0]).join('').slice(0,2)}</div><div><p class="eyebrow">STORE INTELLIGENCE / ${s.confidence}% CONFIDENCE</p><h2>${s.name}</h2><a>${s.domain} ↗</a></div></div>
+      <button class="modal-close" data-close>${icons.close}</button><div class="store-head"><div class="store-logo">${s.name.split(' ').map(x=>x[0]).join('').slice(0,2)}</div><div><p class="eyebrow">STORE INTELLIGENCE / PUBLIC EVIDENCE</p><h2>${escapeHtml(s.name)}</h2><a>${escapeHtml(s.domain)} ↗</a></div></div>
       <p class="store-description">${escapeHtml(s.description)}</p>
-      <div class="metric-grid"><div><small>${s.sourceType === 'live' ? '流量数据' : '月访问量（估算）'}</small><strong>${s.traffic}</strong><span>${s.trafficChange == null ? '未进行未经验证的估算' : `↗ ${s.trafficChange}%`}</span></div><div><small>平均公开价格</small><strong>US$${s.aov}</strong><span>基于本次读取的变体</span></div><div><small>读取商品</small><strong>${s.products}</strong><span>${escapeHtml(s.category)}</span></div><div><small>品牌起始年份</small><strong>${s.founded}</strong><span>${escapeHtml(s.country)}</span></div></div>
+      <div class="metric-grid"><div><small>${s.sourceType === 'live' ? '流量数据' : '月访问量（估算）'}</small><strong>${escapeHtml(s.traffic)}</strong><span>${s.trafficChange == null ? '未进行未经验证的估算' : `↗ ${s.trafficChange}%`}</span></div><div><small>平均公开价格</small><strong>${formatMoney(s.averagePublicPrice,s.currency)}</strong><span>基于本次读取的变体</span></div><div><small>读取商品</small><strong>${escapeHtml(s.products)}</strong><span>${escapeHtml(s.category)}</span></div><div><small>品牌起始年份</small><strong>${escapeHtml(s.founded)}</strong><span>${escapeHtml(s.country)}</span></div></div>
       <div class="store-columns"><div><h4>${s.sourceType === 'live' ? '公开数据边界' : '流量渠道'}</h4>${s.channels.length ? s.channels.map(([n,v])=>`<div class="channel"><span>${n}</span><i><b style="width:${v}%"></b></i><strong>${v}%</strong></div>`).join('') : '<p class="boundary-copy">当前只读取店铺公开页面与公开商品目录，不凭空估算销量、流量或总部。</p>'}</div><div><h4>技术栈信号</h4><div class="tech-stack"><span>Theme</span><strong>${escapeHtml(s.theme)}</strong>${s.apps.map(a=>`<em>${escapeHtml(a)}</em>`).join('')}</div></div></div>
       <div class="data-note"><span>数据性质</span><strong>实时公开数据</strong><span>来源页面</span><strong>${escapeHtml(s.sourceUrl || '公开店铺页面')}</strong><span>更新时间</span><strong>刚刚</strong></div>
     </section></div>`
   }
   const selected = [...state.compare].map(id => catalog.find(p => p.id === id)).filter(Boolean)
-  const fields = [['价格', p=>p.price ? `US$${p.price}` : '—'],['评分',p=>p.rating ? `${p.rating} / 5` : '未公开'],['评论数',p=>p.rating ? p.reviews.toLocaleString() : '未公开'],['热度增长',p=>p.trend == null ? '未估算' : `+${p.trend}%`],['商品类型',p=>p.specs['商品类型'] || p.category],['变体数量',p=>p.specs['变体数量'] || '—'],['数据可信度',p=>`${p.confidence}%`]]
-  return `<div class="modal-layer compare-layer"><button class="modal-backdrop" data-close></button><section class="compare-report"><button class="modal-close" data-close>${icons.close}</button><p class="eyebrow">AUTO-GENERATED COMPARISON</p><h2>商品透视对比</h2><p>基于公开页面字段生成，所有结论均可回溯到对应商品。</p><div class="compare-table"><div class="compare-row compare-head"><b>对比维度</b>${selected.map(p=>`<div><i style="background:${p.image}"></i><strong>${p.name}</strong><span>${p.brand}</span></div>`).join('')}</div>${fields.map(([name,get])=>`<div class="compare-row"><b>${name}</b>${selected.map(p=>`<span>${get(p) || '—'}</span>`).join('')}</div>`).join('')}</div><div class="report-insight"><span>AI 观察</span><p>${selected.sort((a,b)=>b.trend-a.trend)[0].name} 当前增长信号最强；${selected.sort((a,b)=>a.price-b.price)[0].name} 价格门槛最低。建议进一步验证广告投放强度与近 30 天价格变化。</p></div></section></div>`
+  const fields = [['价格', p=>p.price ? formatMoney(p.price,p.currency) : '—'],['评分',p=>p.rating ? `${p.rating} / 5` : '未公开'],['评论数',p=>p.rating ? p.reviews.toLocaleString() : '未公开'],['热度增长',p=>p.trend == null ? '未估算' : `+${p.trend}%`],['商品类型',p=>p.specs['商品类型'] || p.category],['变体数量',p=>p.specs['变体数量'] || '—'],['数据可信度',p=>`${p.confidence == null ? '未评估' : p.confidence + '%'}`]]
+  return `<div class="modal-layer compare-layer"><button class="modal-backdrop" data-close></button><section class="compare-report"><button class="modal-close" data-close>${icons.close}</button><p class="eyebrow">AUTO-GENERATED COMPARISON</p><h2>商品透视对比</h2><p>基于公开页面字段生成，所有结论均可回溯到对应商品。</p><div class="compare-table"><div class="compare-row compare-head"><b>对比维度</b>${selected.map(p=>`<div><i style="background:${p.image}"></i><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(p.brand)}</span></div>`).join('')}</div>${fields.map(([name,get])=>`<div class="compare-row"><b>${name}</b>${selected.map(p=>`<span>${get(p) || '—'}</span>`).join('')}</div>`).join('')}</div><div class="report-insight"><span>AI 观察</span><p>${selected.sort((a,b)=>b.trend-a.trend)[0].name} 当前增长信号最强；${selected.sort((a,b)=>a.price-b.price)[0].name} 价格门槛最低。建议进一步验证广告投放强度与近 30 天价格变化。</p></div></section></div>`
 }
 
 function bindEvents() {
@@ -888,6 +888,9 @@ function bindEvents() {
   document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { state.view = b.dataset.view; render() })
   document.querySelector('#sort-select')?.addEventListener('change', e => { state.sort = e.target.value; render() })
   document.querySelectorAll('.product-card button').forEach(btn => btn.onclick = () => handleProductAction(btn.closest('.product-card').dataset.id, btn.dataset.action))
+  document.querySelectorAll('[data-strategy-view]').forEach(button => button.onclick = () => { const scope = button.dataset.scope; state[`${scope}View`] = button.dataset.strategyView; localStorage.setItem(`jiagoumao-${scope}-view`, button.dataset.strategyView); render() })
+  document.querySelectorAll('[data-strategy-filter]').forEach(select => select.onchange = () => { const scope = select.dataset.scope; state[`${scope}Filters`][select.dataset.strategyFilter] = select.value; render(); document.querySelector(`[data-scope="${scope}"][data-strategy-filter="${select.dataset.strategyFilter}"]`)?.focus() })
+  document.querySelectorAll('[data-clear-strategy-filters]').forEach(button => button.onclick = () => { state[`${button.dataset.clearStrategyFilters}Filters`] = {}; render() })
   document.querySelectorAll('[data-strategy-id]').forEach(btn => btn.onclick = () => { state.activeStrategyId = btn.dataset.strategyId; render() })
   document.querySelectorAll('[data-close-strategy-drawer]').forEach(btn => btn.onclick = () => { state.activeStrategyId = null; render() })
   document.querySelectorAll('[data-sample-detail]').forEach(btn => btn.onclick = () => { state.modal = { type: 'detail', id: btn.dataset.sampleDetail }; render() })
@@ -896,10 +899,18 @@ function bindEvents() {
   document.querySelector('#clear-compare')?.addEventListener('click', () => { state.compare.clear(); render() })
   document.querySelector('#open-compare')?.addEventListener('click', () => { state.modal = {type:'compare'}; render() })
   document.querySelector('#reset-search')?.addEventListener('click', resetIdle)
-  document.addEventListener('keydown', keyHandler, { once: true })
+  document.removeEventListener('keydown', keyHandler)
+  document.addEventListener('keydown', keyHandler)
 }
 
 function keyHandler(e) {
+  if (e.key === 'Tab' && (state.modal || state.activeStrategyId)) {
+    const layer = document.querySelector(state.modal ? '.modal-layer' : '.strategy-drawer-layer')
+    const focusable = [...(layer?.querySelectorAll('button,a[href],input,select,[tabindex="0"]') || [])].filter(element => element.offsetParent !== null && !element.disabled)
+    const first = focusable[0], last = focusable.at(-1)
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus() }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus() }
+  }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); document.querySelector('#search-input')?.focus() }
   if (e.key === 'Escape' && state.modal) { state.modal = null; render() }
   else if (e.key === 'Escape' && state.activeStrategyId) { state.activeStrategyId = null; render() }
@@ -960,7 +971,7 @@ async function runSearch(value) {
     state.dataMode = 'live'; state.sourceUrl = payload.store.sourceUrl; state.category = '全部品类'; state.compare.clear(); state.query = ''
     state.loading = false; state.journeyLoading = true; render()
     try {
-      const sampleUrls = (payload.store?.coverage?.products || []).map(product => product.handle ? `${new URL(targetUrl).origin}/products/${product.handle}` : '').filter(Boolean).slice(0, 1)
+      const sampleUrls = (payload.store?.upsell?.coverage?.samples || payload.store?.upsell?.coverage?.products || []).map(product => product.handle ? product.url || `${new URL(payload.store.sourceUrl).origin}/products/${product.handle}` : '').filter(Boolean).slice(0, 3)
       const journeyQuery = sampleUrls.length ? `&urls=${encodeURIComponent(sampleUrls.join('|'))}` : ''
       const journeyResponse = await fetch(`${apiPath('journey')}?url=${encodeURIComponent(targetUrl)}${journeyQuery}`)
       const journeyPayload = await readJsonResponse(journeyResponse, '真实浏览器加购实验暂时返回了非标准数据。')
