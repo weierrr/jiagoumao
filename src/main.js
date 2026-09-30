@@ -12,7 +12,7 @@ const handoffFrom = handoffParams.get('from') || ''
 const state = {
   query: handoffUrl, category: '全部品类', sort: '默认排序', view: 'grid',
   favorites: new Set(JSON.parse(localStorage.getItem('add-to-cart-cat-favorites') || localStorage.getItem('scope-cat-favorites') || '[]')),
-  compare: new Set(), modal: null, loading: false, journeyLoading: false, journeyError: '', journeyExpanded: false, error: '', dataMode: 'idle', sourceUrl: '', activeStrategyId: null, processStartedAt: 0
+  compare: new Set(), modal: null, loading: false, journeyLoading: false, journeyError: '', journeyExpanded: false, error: '', dataMode: 'idle', mode: 'combined', sourceUrl: '', activeStrategyId: null, processStartedAt: 0
 }
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]))
@@ -236,7 +236,9 @@ const RECOMMENDATION_COPY = {
 }
 
 function recommendationFor(strategy) {
-  const copy = RECOMMENDATION_COPY[strategy.id] || ['补上「' + strategy.name + '」的可测试方案', '先选一个最接近购买决策的位置做小流量测试，不要一次性全站铺开。', '看加购率、客单价、毛利和结账完成率是否同时改善。']
+  const copy = strategy.status === '已发现' || strategy.status === '已验证'
+    ? ['优化「' + strategy.name + '」的表现', '该策略已经被公开页面或真实流程观察到；下一步把位置、文案、推荐商品和触发条件拆成一个变量进行测试。', '看策略点击率、加购率、客单价、毛利和结账完成率是否同时改善。']
+    : (RECOMMENDATION_COPY[strategy.id] || ['补上「' + strategy.name + '」的可测试方案', '先选一个最接近购买决策的位置做小流量测试，不要一次性全站铺开。', '看加购率、客单价、毛利和结账完成率是否同时改善。'])
   return { ...strategy, recommendationTitle: copy[0], recommendationAction: copy[1], recommendationMetric: copy[2] }
 }
 
@@ -446,7 +448,7 @@ function strategyLibraryTemplate() {
   const strategies = flatStrategies()
   return `<section class="strategy-library">
     <div class="strategy-library-head">
-      <div><p class="eyebrow">FULL UPSELL PLAYBOOK</p><h2>覆盖全部 28 类客单价策略</h2><p>点击任一策略，查看配置前后、真实公开页面参考和放大截图。</p></div>
+      <div><p class="eyebrow">FULL UPSELL PLAYBOOK</p><h2>28 类客单价策略，知道怎么落地</h2><p>透视猫的客单价策略库：查看展示示例、配置步骤和公开案例，为诊断后的测试选择方案。</p></div>
       <div class="strategy-total"><strong>28</strong><span>类策略</span></div>
     </div>
     <div class="strategy-workbench">
@@ -481,14 +483,63 @@ function mainMenuTemplate() {
   const strategies = isStrategiesPage()
   return `<header class="main-menu">
     <div class="main-menu-inner">
-      <a class="menu-brand" href="${routePath('/')}" data-home-reset><span class="brand-mark" aria-hidden="true">${icons.bot}</span><span><strong>加购猫</strong><small>SHOPIFY · AOV LAB</small></span></a>
+      <a class="menu-brand" href="${routePath('/')}" data-home-reset><span class="brand-mark" aria-hidden="true">${icons.bot}</span><span><strong>透视猫</strong><small>SHOPIFY · GROWTH REVIEW</small></span></a>
       <nav aria-label="主菜单">
-      <a class="nav-report ${!strategies && state.dataMode === 'live' ? 'active' : ''}" href="${routePath('/')}" data-load-sample-report><span>示例报告</span></a>
-      <a class="${strategies ? 'active' : ''}" href="${routePath('/strategies')}">策略示例库</a>
+      <a class="nav-report ${!strategies && state.dataMode === 'live' ? 'active' : ''}" href="${routePath('/')}" data-load-sample-report><span>示例诊断</span></a>
+      <a class="${strategies ? 'active' : ''}" href="${routePath('/strategies')}">增长策略库</a>
       </nav>
       <button class="menu-status contact-author" type="button" data-contact-author><span>联系作者</span></button>
     </div>
   </header>`
+}
+
+function modeSelectorTemplate() {
+  return `<div class="mode-selector" role="tablist" aria-label="诊断目标">
+    <button class="mode-card combined ${state.mode === 'combined' ? 'active' : ''}" data-mode="combined" role="tab" aria-selected="${state.mode === 'combined'}"><span class="mode-kicker">MODE 01 · FULL REVIEW</span><strong>联合诊断</strong><small>一次扫描，同时看客单价和转化率。</small><em>先修漏斗，再找订单金额增长点</em></button>
+    <button class="mode-card ${state.mode === 'aov' ? 'active' : ''}" data-mode="aov" role="tab" aria-selected="${state.mode === 'aov'}"><span class="mode-kicker">MODE 02 · AOV</span><strong>客单价增长</strong><small>已经想买的人，如何自然地多买一点？</small><em>组合、门槛、升级与复购机会</em></button>
+    <button class="mode-card conversion ${state.mode === 'conversion' ? 'active' : ''}" data-mode="conversion" role="tab" aria-selected="${state.mode === 'conversion'}"><span class="mode-kicker">MODE 03 · CVR</span><strong>转化率增长</strong><small>为什么访问、加购或结账后没有买？</small><em>页面阻塞点、证据、优先修复与 SOP</em></button>
+  </div>`
+}
+
+function heroCopyTemplate() {
+  if (state.mode === 'combined') return { title:'扫描店铺<br><span>一次看清增长机会</span>', copy:'输入一个 Shopify 店铺，透视转化阻塞点、客单价机会和真实购买路径。先修漏斗，再放大订单价值。' }
+  if (state.mode === 'conversion') return { title:'扫描店铺<br><span>找出转化阻塞点</span>', copy:'输入一个 Shopify 店铺，检查首页、商品页、购物车和结账入口，找出影响购买决策的页面问题，并给出修复顺序。' }
+  return { title:'扫描店铺<br><span>找出客单价增长点</span>', copy:'输入一个 Shopify 店铺，识别组合、门槛、升级和复购机会，把已经想买的人自然地引导为更高价值订单。' }
+}
+
+function combinedDiagnosticSummaryTemplate() {
+  if (state.mode !== 'combined' || state.dataMode !== 'live' || state.loading || state.journeyLoading) return ''
+  const store = Object.values(storeMap)[0]
+  const aov = store?.upsell
+  const cvr = store?.conversion
+  if (!aov || !cvr) return ''
+  const high = (cvr.rules || []).filter(item => item.priority === 'high' && item.status !== '已观察到').length
+  const observed = (aov.strategies || []).filter(item => ['已验证','有线索','已发现'].includes(item.status)).length
+  return `<section class="combined-summary"><div><p class="eyebrow">FULL GROWTH REVIEW / ONE SCAN</p><h2>先修转化，再放大客单价</h2><p>两套报告共用本次扫描结果。先复核转化任务的证据与适用性，再选择客单价方案做单变量测试；观察到策略不代表已证明有效。</p></div><div class="combined-metrics"><article><strong>${high}</strong><span>高优先级转化任务</span></article><article><strong>${observed}<small>/${aov.total}</small></strong><span>已观察客单价线索</span></article><article><strong>${(cvr.rules || []).length}</strong><span>转化率检查项</span></article></div></section>`
+}
+
+function conversionDiagnosticTemplate() {
+  if (!['conversion','combined'].includes(state.mode) || state.dataMode !== 'live' || state.loading || state.journeyLoading) return ''
+  const report = Object.values(storeMap)[0]?.conversion
+  if (!report) return ''
+  const rules = report.rules || []
+  const observed = rules.filter(x => x.status === '已观察到')
+  const high = rules.filter(x => x.priority === 'high' && x.status !== '已观察到').slice(0, 3)
+  const pageTypes = ['首页与落地页','Collection Page','商品页','Cart & Navigation','Checkout Entry','Mobile Experience','Trust & Performance']
+  const statusLabel = { '已观察到':'已观察到', '未观察到':'未观察到', '无法确认':'无法确认' }
+  return `<section class="conversion-panel">
+    <div class="conversion-head"><div><p class="eyebrow">CVR DIAGNOSTIC / PUBLIC EVIDENCE</p><h2>转化率增长诊断</h2><p>${escapeHtml(report.summary)} 本次只读取公开店铺页面，未连接 Shopify Analytics。</p></div><div class="conversion-score"><strong>${observed.length}<small>/${rules.length}</small></strong><span>观察到相关信号</span></div></div>
+    <div class="conversion-boundary"><strong>数据边界</strong><span>未观察到不代表后台没有配置；结账字段、真实支付和购买后流程需要后台或授权检查。</span></div>
+    <div class="page-progress">${pageTypes.map(type => { const items = rules.filter(x => x.pageType === type); const done = items.filter(x => x.status !== '未观察到').length; const total = items.length; return `<div><span>${escapeHtml(type)}</span><b>${done} / ${total}</b><i><em style="width:${total ? Math.round(done / total * 100) : 0}%"></em></i></div>` }).join('')}</div>
+    <div class="conversion-priority"><div><p class="eyebrow">FIRST FIXES / 先改这三项</p><h3>高优先级任务</h3></div><div class="conversion-cards">${high.map(rule => `<article class="conversion-card priority-${rule.priority}"><header><span>${escapeHtml(rule.id)}</span><b>${escapeHtml(statusLabel[rule.status])}</b><em>高优先级</em></header><h4>${escapeHtml(rule.title)}</h4><p><strong>证据：</strong>${escapeHtml(rule.evidence)}</p><p><strong>动作：</strong>${escapeHtml(rule.action)}</p><p><strong>验证：</strong>${escapeHtml((rule.metrics || []).join('、'))}</p><small>${escapeHtml(rule.limitation)}</small></article>`).join('') || '<p class="muted">当前没有可直接排序的高优先级公开问题。</p>'}</div></div>
+    <details class="conversion-all"><summary><span>查看全部 ${rules.length} 项检查</span><b>${rules.filter(x=>x.status === '无法确认').length} 项无法确认</b></summary><div>${rules.map(rule => `<article class="conversion-row"><div><span>${escapeHtml(rule.id)}</span><strong>${escapeHtml(rule.title)}</strong><b class="status-${rule.status === '已观察到' ? 'seen' : rule.status === '无法确认' ? 'unknown' : 'missing'}">${escapeHtml(statusLabel[rule.status])}</b></div><p>${escapeHtml(rule.evidence)}</p><p><strong>动作：</strong>${escapeHtml(rule.action)} <strong>指标：</strong>${escapeHtml((rule.metrics || []).join('、'))}</p></article>`).join('')}</div></details>
+    ${conversionSopTemplate()}
+  </section>`
+}
+
+function conversionSopTemplate() {
+  const days = [['DAY 1','建立基线','连接 Analytics 后记录 sessions、加购、到达结账和完成结账；未连接时只记录公开页面状态。'],['DAY 2–3','修复高确定性问题','补齐配送、退换、评价和主 CTA，删除结账前不必要的干扰。'],['DAY 4–7','走通移动端路径','用真实手机尺寸复测：首页 → 商品页 → 变体 → 加购 → 购物车 → 结账入口。'],['WEEK 2','一次只测一个变量','测试 CTA 文案、固定加购栏、评价位置或到货日期位置，预先定义主指标和护栏指标。'],['WEEK 3–4','复盘与推广','同时看转化率、客单价、毛利、退款率；样本不足时不宣布改版获胜。']]
+  return `<div class="cvr-sop"><div><p class="eyebrow">30-DAY OPERATING SOP</p><h3>30 天执行与验证计划</h3><p>每一步都绑定执行动作和验证指标，公开诊断不会填入估算的转化率或提升百分比。</p></div><div class="sop-steps">${days.map(([label,title,copy]) => `<article><span>${label}</span><strong>${title}</strong><p>${copy}</p></article>`).join('')}</div></div>`
 }
 
 function filteredProducts() {
@@ -551,7 +602,7 @@ function publicEvidenceTemplate(list) {
   const priceRange = minPrice && maxPrice ? `US$${minPrice}–${maxPrice}` : '价格未完整公开'
   return `<section class="evidence-section">
     <div class="evidence-head">
-      <div><p class="eyebrow">PUBLIC PRODUCT EVIDENCE</p><h2>${storeName} 的商品证据采样</h2><p>公开商品不再作为浏览列表展示，只作为本次客单价诊断的证据来源。</p></div>
+      <div><p class="eyebrow">PUBLIC PRODUCT EVIDENCE</p><h2>${storeName} 的公开商品证据</h2><p>从公开商品理解价格、变体与品类，为报告中的组合和升级建议提供参考。</p></div>
       <a href="${escapeHtml(state.sourceUrl)}" target="_blank" rel="noopener">打开来源店铺 ↗</a>
     </div>
     <div class="evidence-metrics">
@@ -600,7 +651,7 @@ function diagnosticTemplate() {
     diagnosticUrlLabel = `${parsed.host}${parsed.pathname !== '/' ? parsed.pathname : ''}`
   } catch {}
   return `<section class="diagnostic-panel">
-    <div class="diagnostic-head"><div><a class="eyebrow diagnostic-source-url" href="${escapeHtml(diagnosticUrl || '#')}" ${diagnosticUrl ? 'target="_blank" rel="noopener"' : ''} title="打开当前诊断店铺">${escapeHtml(diagnosticUrlLabel || '当前诊断店铺')}</a><h2>客单价策略诊断</h2><p>${escapeHtml(report.summary)}</p>${report.coverage?.products?.length ? `<div class="diagnostic-coverage"><span>本次覆盖商品</span>${report.coverage.products.map(product => `<b>${escapeHtml(product.segment)} · ${escapeHtml(product.title || '未命名商品')}</b>`).join('')}</div>` : ''}</div><div class="diagnostic-score"><strong>${report.foundCount}<small>/${report.total}</small></strong><span>观察到的线索</span></div></div>
+    <div class="diagnostic-head"><div><a class="eyebrow diagnostic-source-url" href="${escapeHtml(diagnosticUrl || '#')}" ${diagnosticUrl ? 'target="_blank" rel="noopener"' : ''} title="打开当前诊断店铺">${escapeHtml(diagnosticUrlLabel || '当前诊断店铺')}</a><h2>客单价增长诊断</h2><p>${escapeHtml(report.summary)}</p>${report.coverage?.products?.length ? `<div class="diagnostic-coverage"><span>本次覆盖商品</span>${report.coverage.products.map(product => `<b>${escapeHtml(product.segment)} · ${escapeHtml(product.title || '未命名商品')}</b>`).join('')}</div>` : ''}</div><div class="diagnostic-score"><strong>${report.foundCount}<small>/${report.total}</small></strong><span>观察到的线索</span></div></div>
     <div class="diagnostic-columns"><div><h3>已验证 / 有线索</h3><div class="strategy-list">${observed.length ? observed.map((x,index)=>{
       const label = x.status === '已发现' ? '有线索' : x.status
       const evidenceTypes = (x.evidenceTypes || []).join(' + ')
@@ -620,10 +671,10 @@ function journeyTemplate() {
   const store = Object.values(storeMap)[0]
   const journey = store?.journey
   if (state.journeyLoading) return runningProcessTemplate('journey')
-  if (!journey) return state.journeyError ? `<section class="journey-panel journey-failed"><div class="journey-heading"><div><p class="eyebrow">REAL BROWSER / OPTIONAL CHECK</p><h2>真实加购实验暂不可用</h2><p>${escapeHtml(state.journeyError)}</p></div><span class="journey-status blocked">不影响静态诊断</span></div></section>` : ''
+  if (!journey) return state.journeyError ? `<section class="journey-panel journey-failed"><div class="journey-heading"><div><p class="eyebrow">REAL BROWSER / OPTIONAL CHECK</p><h2>购买路径验证未完成</h2><p>${escapeHtml(state.journeyError)}</p></div><span class="journey-status blocked">不影响静态诊断</span></div></section>` : ''
   const statusText = { passed:'已验证', partial:'部分完成', blocked:'无法进入' }
   return `<section class="journey-panel">
-    <div class="journey-heading"><div><p class="eyebrow">REAL BROWSER / INTERACTIVE VERIFICATION</p><h2>真实购物流程证据</h2><p>使用独立 Chromium 匿名会话执行，不填写个人信息、不提交订单。</p></div><div class="journey-meta"><strong>${Math.round((journey.durationMs || 0) / 1000)}s</strong><span>${escapeHtml(journey.engine)}</span></div></div>
+    <div class="journey-heading"><div><p class="eyebrow">REAL BROWSER / INTERACTIVE VERIFICATION</p><h2>购买路径验证结果</h2><p>在独立匿名会话中尝试选规格、加购和进入结账入口，记录完成情况与阻力；不会填写个人信息或提交订单。</p></div><div class="journey-meta"><strong>${Math.round((journey.durationMs || 0) / 1000)}s</strong><span>${escapeHtml(journey.engine)}</span></div></div>
     <div class="journey-steps">${journey.steps.map((step,index)=>`<article class="journey-step ${step.status}"><div><b>0${index+1}</b><span class="journey-status ${step.status}">${statusText[step.status] || step.status}</span></div><h3>${escapeHtml(step.label)}</h3><p>${escapeHtml(step.evidence)}</p>${step.url ? `<a href="${escapeHtml(step.url)}" target="_blank" rel="noopener">${escapeHtml(new URL(step.url).hostname + new URL(step.url).pathname)}</a>` : ''}</article>`).join('')}</div>
     ${journey.findings?.length ? `<div class="journey-findings"><strong>交互命中的策略</strong><div>${journey.findings.map(item=>`<span><b>${escapeHtml(item.name)}</b>${escapeHtml(item.step)} · ${item.confidence}%</span>`).join('')}</div></div>` : ''}
     ${journey.sampleRuns?.length > 1 ? `<div class="journey-samples"><strong>代表商品验证</strong><div>${journey.sampleRuns.map(item => item.status === 'failed' ? `<span class="is-failed">验证失败 · ${escapeHtml(item.stage || '未知阶段')} · ${escapeHtml(item.error || '未完成')}</span>` : `<span>已完成 · ${escapeHtml(item.product?.title || '代表商品')}</span>`).join('')}</div></div>` : ''}
@@ -649,17 +700,17 @@ function runningProcessTemplate(mode = 'static') {
     ['05','寻找结账入口','进入结账前一步，确认结账前追加购买机会。']
   ] : [
     ['01','读取店铺公开页面','规范化 URL，打开 Shopify 公开页面并识别数据入口。'],
-    ['02','抓取商品目录','读取公开商品 JSON，提取价格、变体、图片和商品链接。'],
-    ['03','识别客单价动作','检查划线价、套装、多件折扣、推荐商品和购物车信号。'],
+    ['02','读取商品信息','整理公开价格、变体、图片和商品链接。'],
+    ['03','检查购买决策信息','读取商品与购物车页面，整理信任、配送、推荐和价格信号。'],
     ['04','生成诊断结论','把已验证、有线索、未观察到和无法确认的策略分层整理。'],
     ['05','准备可读报告','输出增长机会、证据边界和下一步建议。']
   ]
-  const title = isJourney ? '正在跑真实购物流程' : '正在分析店铺公开数据'
+  const title = isJourney ? '正在验证购买路径' : '正在分析店铺公开数据'
   const copy = isJourney
     ? '浏览器正在模拟一次真实购买：打开商品页、加购、读取购物车、修改数量并尝试进入结账入口。'
-    : '加购猫正在读取公开商品目录和页面信号，先把可确认的客单价增长动作整理出来。'
-  const eyebrow = isJourney ? 'REAL BROWSER / INTERACTIVE VERIFICATION' : 'PUBLIC DATA / AOV DIAGNOSTIC'
-  const logs = isJourney ? ['准备匿名浏览器会话','等待商品页加载完成','观察购物车和加购组件','记录无法确认的步骤'] : ['检查 Shopify URL','读取 products.json','提取价格与变体','匹配 28 类客单价策略']
+    : '透视猫正在读取公开商品目录和页面信号，整理转化阻塞点、客单价机会与证据边界。'
+  const eyebrow = isJourney ? 'REAL BROWSER / INTERACTIVE VERIFICATION' : 'PUBLIC DATA / SHOPIFY GROWTH REVIEW'
+  const logs = isJourney ? ['准备匿名浏览器会话','等待商品页加载完成','观察购物车和加购组件','记录无法确认的步骤'] : ['检查 Shopify URL','读取公开商品目录','提取价格、变体和页面信号','生成转化与客单价诊断']
   const currentIndex = Math.min(steps.length - 1, Math.floor(progress / (100 / steps.length)))
   const timeText = remainingSeconds ? `预计还需 ${remainingSeconds}s` : '正在收尾'
   return `<section class="journey-panel journey-running process-board">
@@ -699,7 +750,10 @@ function applyJourney(journey) {
     return strategy
   })
   report.foundCount = report.strategies.filter(item => ['已验证', '有线索', '已发现'].includes(item.status)).length
-  report.opportunities = report.strategies.filter(item => item.status === '未观察到').slice(0,5).map((item,index) => ({ ...item, priority:index < 2 ? '高' : index < 4 ? '中' : '低' }))
+  const missing = report.strategies.filter(item => ['未观察到','未发现'].includes(item.status))
+  const fallback = report.strategies.filter(item => ['已发现','已验证'].includes(item.status))
+  const opportunityPool = [...missing, ...fallback.filter(item => !missing.some(candidate => candidate.id === item.id))].slice(0,5)
+  report.opportunities = opportunityPool.map((item,index) => ({ ...item, priority: missing.includes(item) ? (index < 2 ? '高' : index < 4 ? '中' : '低') : (index < 2 ? '中' : '低') }))
   const failedSamples = (journey.sampleRuns || []).filter(item => item.status === 'failed').length
   report.summary = `静态页面与真实购物流程共观察到 ${report.foundCount} / ${report.total} 类客单价策略线索；已验证 ${journey.sampleCount || 1} / ${journey.sampleTotal || journey.sampleCount || 1} 个代表商品${failedSamples ? `，${failedSamples} 个商品验证失败` : ''}。`
 }
@@ -718,12 +772,12 @@ function friendlyJourneyError(error) {
   const stage = error?.stage ? `当前阶段：${error.stage}。` : ''
   const elapsed = error?.elapsedMs ? `已耗时 ${Math.round(error.elapsedMs / 1000)} 秒。` : ''
   if (/Unexpected token|not valid JSON|公开商品接口|An error/i.test(message)) {
-    return '真实浏览器加购实验暂时没跑完：目标店铺或平台返回了非标准商品数据，无法确认可加购商品。静态策略诊断已完成，可继续参考下方结果。'
+    return '购买路径验证暂时没跑完：目标店铺或平台返回了非标准商品数据，无法确认可加购商品。静态策略诊断已完成，可继续参考下方结果。'
   }
   if (/timeout|超时|timed out/i.test(message)) {
-    return `真实浏览器加购实验超时。${stage}${elapsed}目标店铺页面或购物车响应过慢。静态策略诊断已完成，可继续参考下方结果。`
+    return `购买路径验证超时。${stage}${elapsed}目标店铺页面或购物车响应过慢。静态策略诊断已完成，可继续参考下方结果。`
   }
-  return message ? `${stage}${elapsed}${message}静态策略诊断已完成，可继续参考下方结果。` : '真实浏览器加购实验暂时没跑完；静态策略诊断已完成，可继续参考下方结果。'
+  return message ? `${stage}${elapsed}${message}静态策略诊断已完成，可继续参考下方结果。` : '购买路径验证暂时没跑完；静态策略诊断已完成，可继续参考下方结果。'
 }
 
 function reportTemplate() {
@@ -741,35 +795,35 @@ function reportTemplate() {
 
 function valuePropTemplate() {
   if (state.dataMode === 'live' || state.loading || state.journeyLoading) return ''
-  return `<section class="aov-map" aria-label="客单价增长地图">
+  return `<section class="aov-map" aria-label="店铺增长地图">
     <div class="aov-map-head">
-      <p class="eyebrow">AOV GROWTH MAP</p>
-      <h2>提高客单价，不只是在商品上打折。</h2>
-      <p>加购猫会沿着一次购买旅程，检查哪里还能自然多卖一点：商品页有没有升级理由，购物车有没有继续加购的提示，购买后有没有追加成交的机会。</p>
+      <p class="eyebrow">SHOPIFY GROWTH MAP</p>
+      <h2>增长不只看流量，也要看每一步怎么成交。</h2>
+      <p>透视猫沿着一次购买旅程，先找出转化损失，再识别客单价机会：哪里让用户犹豫，哪里可以让已经想买的人自然多买一点。</p>
     </div>
     <div class="aov-flow">
       <article>
-        <span>01 / PDP</span>
-        <strong>商品页先给升级理由</strong>
-        <p>检查套装、数量折扣、高配版本、划线价和配件推荐，判断顾客是否知道“多买一点”的价值。</p>
+        <span>01 / CONVERSION</span>
+        <strong>先看哪里让顾客犹豫</strong>
+        <p>检查首屏卖点、主 CTA、信任信息和商品选择，降低用户从访问到加购的决策成本。</p>
       </article>
       <article>
-        <span>02 / CART</span>
-        <strong>购物车再推临门一脚</strong>
-        <p>检查免邮门槛、满额赠品、购物车进度条和一键加购，把犹豫变成更高订单金额。</p>
+        <span>02 / ORDER VALUE</span>
+        <strong>再找订单价值机会</strong>
+        <p>识别套装、免邮门槛、升级款与配件推荐的公开线索，找到值得测试的客单价增长方案。</p>
       </article>
       <article>
-        <span>03 / AFTER PAY</span>
-        <strong>付款后继续补一单</strong>
-        <p>检查购买后追加、订阅省钱、补货提醒和复购激励，把一次成交延伸成下一次成交。</p>
+        <span>03 / ACTION PLAN</span>
+        <strong>把发现变成执行任务</strong>
+        <p>每条建议说明证据、优先级、实施动作和验证指标；需要后台确认的环节单独列出。</p>
       </article>
     </div>
     <div class="aov-output">
       <strong>输入店铺后，你会看到：</strong>
-      <span>已发现的客单价动作</span>
-      <span>缺失的增长机会</span>
-      <span>可参考的配置示例</span>
-      <span>真实加购链路边界</span>
+      <span>公开页面证据</span>
+      <span>优先修复任务</span>
+      <span>客单价增长机会</span>
+      <span>真实购买路径证据</span>
     </div>
   </section>`
 }
@@ -782,28 +836,31 @@ function render() {
   const list = filteredProducts()
   const safeQuery = escapeHtml(state.query)
   const strategiesPage = isStrategiesPage()
+  const heroCopy = heroCopyTemplate()
   document.querySelector('#app').innerHTML = `
     <div class="app-shell">
       ${mainMenuTemplate()}
       <main>
         ${strategiesPage ? `${strategyLibraryTemplate()}` : `
         <section class="hero">
-          <div class="hero-copy"><p class="eyebrow">选品猫产品家族 · SHOPIFY UPSELL DIAGNOSTIC</p><h1>扫描店铺<br><span>找出客单价增长点</span></h1><p>输入一个 Shopify 店铺，扫描商品页、加购动作和购物车流程。看清它已经在做什么，找到还可以补上的客单价增长动作。</p></div>
-          <div class="hero-metrics"><div><small>已索引商品</small><strong>2,840,631</strong><span>今日 +18,420</span></div><div><small>活跃品牌</small><strong>126,804</strong><span>覆盖 41 个国家</span></div></div>
+          <div class="hero-copy"><p class="eyebrow">选品猫产品家族 · SHOPIFY GROWTH REVIEW</p><h1>${heroCopy.title}</h1><p>${heroCopy.copy}</p></div>
           <form class="search-panel" id="search-form">
             <div class="scanner-icon">${icons.scan}</div>
             <input id="search-input" value="${safeQuery}" placeholder="粘贴 Shopify 店铺 / 商品 URL 开始诊断" autocomplete="off" />
             <button type="submit" ${state.loading || state.journeyLoading ? 'disabled' : ''}>${state.loading ? '<span class="loading-dot"></span>正在读取公开数据' : state.journeyLoading ? '<span class="loading-dot"></span>正在交互验证' : `开始透视 ${icons.arrow}`}</button>
             <div class="search-beam"></div>
           </form>
+          ${modeSelectorTemplate()}
           ${handoffUrl && handoffFrom === 'toushimao' ? `<div class="handoff-note"><strong>已从透视猫带入店铺</strong><span>${escapeHtml(handoffUrl)} · 点击“开始透视”后执行公开页面诊断</span></div>` : ''}
-          ${state.error ? `<div class="analysis-error"><strong>没有完成分析</strong><span>${escapeHtml(state.error)}</span><button id="reset-search">返回首页</button></div>` : ''}
+          ${state.error ? `<div class="analysis-error"><strong>本次诊断未完成</strong><span>${escapeHtml(state.error)}</span><button id="reset-search">返回首页</button></div>` : ''}
         </section>
         ${state.loading ? runningProcessTemplate('static') : ''}
         ${valuePropTemplate()}
         ${journeyTemplate()}
         ${reportTemplate()}
-        ${diagnosticTemplate()}
+        ${combinedDiagnosticSummaryTemplate()}
+        ${state.mode !== 'conversion' ? diagnosticTemplate() : ''}
+        ${conversionDiagnosticTemplate()}
         ${publicEvidenceTemplate(list)}`}
       </main>
       ${state.compare.size ? `<div class="compare-dock"><div><span>${state.compare.size}</span><p><strong>已加入对比</strong><small>最多选择 3 件商品</small></p></div><div class="compare-thumbs">${[...state.compare].map(id=>{const p=catalog.find(x=>x.id===id);return p ? `<i style="${visualStyle(p)}" title="${escapeHtml(p.name)}"></i>` : ''}).join('')}</div><button id="clear-compare">清空</button><button id="open-compare" ${state.compare.size<2?'disabled':''}>生成对比报告 ${icons.arrow}</button></div>` : ''}
@@ -869,6 +926,7 @@ function modalTemplate() {
 }
 
 function bindEvents() {
+  document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => { state.mode = button.dataset.mode; render() }))
   document.querySelector('[data-home-reset]')?.addEventListener('click', e => {
     if (!isStrategiesPage()) {
       e.preventDefault()
@@ -928,7 +986,7 @@ async function loadSampleReport() {
   state.error = ''
   render()
   try {
-    const response = await fetch(`${apiPath('analyze')}?url=${encodeURIComponent(SAMPLE_REPORT_URL)}`)
+    const response = await fetch(`${apiPath('analyze')}?url=${encodeURIComponent(SAMPLE_REPORT_URL)}&mode=${state.mode}`)
     const payload = await readJsonResponse(response, '示例报告暂时返回了非标准数据，请稍后重试。')
     if (!response.ok || payload.error) throw new Error(payload.error || '示例报告加载失败')
     catalog = payload.products
@@ -953,7 +1011,7 @@ async function runSearch(value) {
   state.loading = true; state.processStartedAt = Date.now(); render()
   try {
     const targetUrl = normalizeUrl(state.query)
-    const response = await fetch(`${apiPath('analyze')}?url=${encodeURIComponent(targetUrl)}`)
+    const response = await fetch(`${apiPath('analyze')}?url=${encodeURIComponent(targetUrl)}&mode=${state.mode}`)
     const payload = await readJsonResponse(response, '分析接口暂时返回了非标准数据，请稍后重试。')
     if (!response.ok || payload.error) throw new Error(payload.error || '分析失败')
     catalog = payload.products; storeMap = { [payload.store.id]: payload.store }
@@ -963,7 +1021,7 @@ async function runSearch(value) {
       const sampleUrls = (payload.store?.coverage?.products || []).map(product => product.handle ? `${new URL(targetUrl).origin}/products/${product.handle}` : '').filter(Boolean).slice(0, 1)
       const journeyQuery = sampleUrls.length ? `&urls=${encodeURIComponent(sampleUrls.join('|'))}` : ''
       const journeyResponse = await fetch(`${apiPath('journey')}?url=${encodeURIComponent(targetUrl)}${journeyQuery}`)
-      const journeyPayload = await readJsonResponse(journeyResponse, '真实浏览器加购实验暂时返回了非标准数据。')
+      const journeyPayload = await readJsonResponse(journeyResponse, '购买路径验证暂时返回了非标准数据。')
       if (!journeyResponse.ok || journeyPayload.error) { const error = new Error(journeyPayload.error || '交互验证失败'); error.stage = journeyPayload.stage; error.elapsedMs = journeyPayload.elapsedMs; throw error }
       applyJourney(journeyPayload)
     } catch (journeyError) {
