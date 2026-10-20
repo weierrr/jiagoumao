@@ -1,0 +1,15 @@
+## Validation Summary
+
+**Overall Status:** ✅ VALID
+**Total Code Blocks:** 1
+
+## Detailed Results
+
+### Code Block 1
+**Artifact ID:** edm-shopify-queries
+**Revision:** 3
+*Use same ID & increment revision when retrying on an improvement of this artifact*
+
+**Status:** ✅ SUCCESS
+**Details:** Successfully validated GraphQL query against schema.
+Required scopes: read_customers, read_orders, read_marketplace_orders, read_quick_sale, write_customers

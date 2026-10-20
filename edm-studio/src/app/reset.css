@@ -1,0 +1,17 @@
+html {
+  color-scheme: light;
+}
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+svg {
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+::selection {
+  background: #ded4fa;
+  color: #46316d;
+}
