@@ -6,3 +6,6 @@ prisma/*.db*
 *.tsbuildinfo
 test-results/
 playwright-report/
+.agents/
+skills-lock.json
+.vercel

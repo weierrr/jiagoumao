@@ -58,7 +58,7 @@ npm run test:browser     # 另有 npm run dev 正在监听 3100，使用本机 C
 
 ## PostgreSQL
 
-本机没有 Docker/PostgreSQL，所以本地验收使用 SQLite。完整等价的 PostgreSQL schema 和初始 migration 在 `prisma/postgresql/`。
+本地开发默认使用 SQLite。云端部署使用独立 Neon PostgreSQL；完整等价的 PostgreSQL schema 和初始 migration 在 `prisma/postgresql/`。
 
 ```bash
 # 使用隔离的 PostgreSQL Preview 数据库，先在 .env 配置其 DATABASE_URL。
@@ -69,7 +69,7 @@ npm run typecheck
 npm test
 ```
 
-注意：`npm test` 的默认测试运行器针对 SQLite Client。切换 PostgreSQL 后，应在另一份 SQLite 开发目录运行本地测试，或用 PostgreSQL Preview 独立测试数据库执行等效验收。不要在生产运行现有测试或直接运行 SQLite 的 `npm run setup`。切换 schema 后始终重新生成 Prisma Client。PostgreSQL migration 已生成并静态校验，未连接 PostgreSQL 服务实测；生产启用前必须完成迁移、并发与备份恢复验收。
+注意：`npm test` 的默认测试运行器针对 SQLite Client。切换 PostgreSQL 后，应在另一份 SQLite 开发目录运行本地测试，或用 PostgreSQL Preview 独立测试数据库执行等效验收。不要在生产运行现有测试或直接运行 SQLite 的 `npm run setup`。切换 schema 后始终重新生成 Prisma Client。云端迁移与回归测试记录见 `docs/vercel-deployment.md`；真实营销启用前仍需并发、备份恢复和真实账号联调验收。
 
 ## Shopify 连接
 
@@ -91,7 +91,7 @@ npm test
 
 ## 部署与回滚
 
-所有变更先在隔离 Preview 验证。当前没有部署到生产，也未修改 FormWink 店铺。
+所有变更先在隔离 Preview 验证。Vercel 在线演示的配置与验收见 `docs/vercel-deployment.md`；线上演示保持 Mock 模式，不修改 FormWink 店铺。
 
 Next.js Web 可部署 Node 服务或 Vercel Preview，必须使用 PostgreSQL 而非临时磁盘上的 SQLite。Worker 部署至支持常驻任务的隔离服务；使用同一环境的数据库、单个消费者起步。数据库 migration 应在发布前独立执行；不得让多个实例自动改 schema。
 

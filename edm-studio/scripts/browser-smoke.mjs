@@ -22,6 +22,12 @@ const screenshot = async (name) => {
 };
 try {
   await page.goto(base);
+  if (process.env.TEST_ADMIN_PASSWORD) {
+    await page.getByLabel("运营密码").fill(process.env.TEST_ADMIN_PASSWORD);
+    await page.getByRole("button", { name: "登录工作台", exact: true }).click();
+    await page.getByRole("heading", { name: /让每一次联系/ }).waitFor();
+    await page.reload();
+  }
   await page.getByRole("heading", { name: /让每一次联系/ }).waitFor();
   assert.ok((await page.locator("body").innerText()).includes("FormWink"));
   await page.getByRole("button", { name: "客户", exact: true }).click();

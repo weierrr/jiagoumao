@@ -9,6 +9,14 @@ export function safeEqual(a: string, b: string) {
   const y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);
 }
+export function appOrigin() {
+  return new URL(
+    process.env.APP_URL ||
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://127.0.0.1:3100"),
+  ).origin;
+}
 export function demoLocal(request: Request) {
   if (!DEMO || process.env.ADMIN_PASSWORD) return false;
   const host = request.headers.get("host") || new URL(request.url).host;
@@ -29,7 +37,13 @@ export function authenticated(request: Request) {
     .get("cookie")
     ?.match(/(?:^|;\s*)edm_session=([^;]+)/)?.[1];
   if (!cookie) return false;
-  const [payload, signature] = cookie.split(".");
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(cookie);
+  } catch {
+    return false;
+  }
+  const [payload, signature] = decoded.split(".");
   return Boolean(
     signature &&
     safeEqual(digest(payload), signature) &&
@@ -39,8 +53,10 @@ export function authenticated(request: Request) {
 export function assertOrigin(request: Request) {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
   const origin = request.headers.get("origin");
-  const expected = process.env.APP_URL || "http://127.0.0.1:3100";
-  if (origin && origin !== new URL(expected).origin)
+  const allowed = new Set([appOrigin()]);
+  if (process.env.VERCEL_URL)
+    allowed.add(new URL(`https://${process.env.VERCEL_URL}`).origin);
+  if (origin && !allowed.has(origin))
     throw new HttpError(403, "请求来源不受信任");
   if (request.headers.get("sec-fetch-site") === "cross-site")
     throw new HttpError(403, "不允许跨站请求");

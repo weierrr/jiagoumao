@@ -1,6 +1,6 @@
 # Phase 验收记录
 
-验收日期：2026-10-20（Asia/Shanghai）。环境：macOS、本机 Node 24.18.1、Next 16.4.2、SQLite 临时测试数据库。未连接真实 Shopify/Resend，未发送邮件，未修改 FormWink。
+验收日期：2026-10-20（Asia/Shanghai）。本地环境：macOS、Node 24.18.1、Next 16.4.2、SQLite 临时测试数据库。云端演示部署及 Neon PostgreSQL 验收补充见 `docs/vercel-deployment.md`。未连接真实 Shopify/Resend，未发送邮件，未修改 FormWink。
 
 ## 已完成并通过
 
@@ -16,7 +16,7 @@ Phase 4 的安全边界：弃单流程可编辑和模拟但 publish 返回 409�
 
 ## 自动化结果
 
-- `npm test`：38/38 测试通过。
+- `npm test`：39/39 测试通过，包含新增公网域名、登录 Cookie 与刷新会话回归。
 - `npm run typecheck`：通过。
 - `npm run build`：通过，Next 生成页面和动态 API route。
 - `npm run test:browser`：通过。覆盖总览、客户搜索与详情、分群创建/删除、模板 iframe/暗色预览、工作流校验/模拟、活动、事件、设置门禁、移动宽度无横向溢出。
@@ -25,7 +25,7 @@ Phase 4 的安全边界：弃单流程可编辑和模拟但 publish 返回 409�
 
 ## 尚未验收
 
-尚未配置或验证：Shopify OAuth/组织内授权、实际 access token 续期、protected customer data、真实 webhook 注册、Resend policy 书面许可、Resend DNS、受控真实测试邮箱、真实 template publish、Segment 差集同步、Broadcast 发信、Automation 的 delay/wait 条件配置、退订/购买期间远端退出、provider 幂等窗口、费用与用量、PostgreSQL 并发/备份恢复、生产鉴权与监控。
+尚未配置或验证：Shopify OAuth/组织内授权、实际 access token 续期、protected customer data、真实 webhook 注册、Resend policy 书面许可、Resend DNS、受控真实测试邮箱、真实 template publish、Segment 差集同步、Broadcast 发信、Automation 的 delay/wait 条件配置、退订/购买期间远端退出、provider 幂等窗口、费用与用量、PostgreSQL 高并发/备份恢复、生产 SSO/MFA 与监控。在线演示的单账号密码保护已在 Preview 验证。
 
 这些不是本地测试失败；它们需要真实账号和外部状态。代码在缺少这些证据时会保留本地模拟或返回清晰门禁错误。
 

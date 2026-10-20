@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db, STORE_ID, DEMO, DRY_RUN, audit } from "@/lib/db";
 import {
   authenticated,
+  appOrigin,
   assertOrigin,
   safeEqual,
   sessionToken,
@@ -155,7 +156,7 @@ async function route(
     const r = ok({ authenticated: true });
     r.cookies.set("edm_session", sessionToken(), {
       httpOnly: true,
-      secure: (process.env.APP_URL || "").startsWith("https://"),
+      secure: appOrigin().startsWith("https://"),
       sameSite: "strict",
       maxAge: 8 * 3600,
       path: "/",
@@ -694,32 +695,34 @@ async function route(
         const suppressed = await tx.suppression.findMany({
           where: { storeId: STORE_ID },
         });
-        let recipients = 0;
+        const recent = await tx.emailEvent.findMany({
+          where: {
+            storeId: STORE_ID,
+            eventType: "email.simulated",
+            occurredAt: { gte: new Date(Date.now() - 86400000) },
+          },
+          select: { contactId: true },
+        });
+        const recentContacts = new Set(recent.map((event) => event.contactId));
+        const suppressedEmails = new Set(suppressed.map((entry) => entry.email));
+        const recipients = [];
+        const rules = JSON.parse(s.rulesJson);
         let frequencyBlocked = 0;
         for (const c of contacts) {
           if (
-            !eligibility(
-              c,
-              suppressed.some((su) => su.email === c.email),
-            ).allowed ||
-            !matchesRules(c, JSON.parse(s.rulesJson))
+            !eligibility(c, suppressedEmails.has(c.email)).allowed ||
+            !matchesRules(c, rules)
           )
             continue;
-          if (
-            await tx.emailEvent.count({
-              where: {
-                storeId: STORE_ID,
-                contactId: c.id,
-                eventType: "email.simulated",
-                occurredAt: { gte: new Date(Date.now() - 86400000) },
-              },
-            })
-          ) {
+          if (recentContacts.has(c.id)) {
             frequencyBlocked++;
             continue;
           }
-          await tx.emailEvent.create({
-            data: {
+          recipients.push(c);
+        }
+        if (recipients.length)
+          await tx.emailEvent.createMany({
+            data: recipients.map((c) => ({
               storeId: STORE_ID,
               providerEventId: `campaign:${id}:${c.id}`,
               contactId: c.id,
@@ -729,15 +732,13 @@ async function route(
                 campaignId: id,
                 templateId: t.id,
               }),
-            },
+            })),
           });
-          recipients++;
-        }
         const updated = await tx.campaign.update({
           where: { id },
           data: {
             status: "simulated",
-            recipientCount: recipients,
+            recipientCount: recipients.length,
             sentAt: new Date(),
           },
         });

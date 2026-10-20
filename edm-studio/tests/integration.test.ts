@@ -106,6 +106,41 @@ test("management requests are guarded outside loopback; foreign origins rejected
     409,
   );
 });
+test("Vercel deployment and configured domain support secure login without trusting request hosts", async () => {
+  const keys = ["APP_URL", "VERCEL_URL", "ADMIN_PASSWORD", "SESSION_SECRET"];
+  const previous = keys.map((key) => process.env[key]);
+  try {
+    process.env.APP_URL = "https://studio.example.com";
+    process.env.VERCEL_URL = "studio-preview.vercel.app";
+    process.env.ADMIN_PASSWORD = "controlled-test-password";
+    process.env.SESSION_SECRET = "controlled-test-session-secret";
+    assert.equal((await call("bootstrap")).status, 401);
+    const login = await call(
+      "auth/login", "POST", { password: process.env.ADMIN_PASSWORD },
+      { origin: "https://studio-preview.vercel.app" },
+    );
+    assert.equal(login.status, 200);
+    const cookie = login.headers.get("set-cookie")!;
+    assert.match(cookie, /Secure/i);
+    assert.match(cookie, /HttpOnly/i);
+    assert.equal((await call("bootstrap", "GET", undefined, { cookie })).status, 200);
+    assert.equal((await call("auth/logout", "POST", {}, {
+      cookie, origin: "https://studio.example.com",
+    })).status, 200);
+    assert.equal((await call("auth/login", "POST", { password: process.env.ADMIN_PASSWORD }, {
+      host: "attacker.example.com", origin: "https://attacker.example.com",
+    })).status, 403);
+    delete process.env.APP_URL;
+    assert.equal((await call("auth/login", "POST", { password: process.env.ADMIN_PASSWORD }, {
+      origin: "https://studio-preview.vercel.app",
+    })).status, 200);
+  } finally {
+    keys.forEach((key, i) => {
+      if (previous[i] === undefined) delete process.env[key];
+      else process.env[key] = previous[i];
+    });
+  }
+});
 test("arbitrary contact subscription promotion is rejected", async () => {
   assert.equal(
     (
