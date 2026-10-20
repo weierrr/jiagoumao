@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model Store {
+  id String @id
+  name String
+  shopDomain String @unique
+  currency String @default("USD")
+  timezone String @default("Asia/Shanghai")
+  connectStatus String @default("demo")
+  tokenReference String?
+  liveEnabled Boolean @default(false)
+  domainVerified Boolean @default(false)
+  domainCheckedAt DateTime?
+  policyReference String?
+  lastSyncAt DateTime?
+  createdAt DateTime @default(now())
+}
+model Contact {
+  id String @id @default(cuid())
+  storeId String
+  shopifyCustomerGid String?
+  resendContactId String?
+  email String
+  firstName String @default("")
+  lastName String @default("")
+  marketingState String @default("NOT_SUBSCRIBED")
+  consentSource String @default("unknown")
+  consentAt DateTime?
+  consentUpdatedAt DateTime?
+  unsubscribedAt DateTime?
+  suppressedAt DateTime?
+  paused Boolean @default(false)
+  ordersCount Int @default(0)
+  totalSpent Float @default(0)
+  lastOrderAt DateTime?
+  tags String @default("[]")
+  notes String @default("")
+  syncAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  @@unique([storeId, email])
+  @@unique([storeId, shopifyCustomerGid])
+  @@index([storeId, marketingState])
+}
+model ConsentHistory {
+  id String @id @default(cuid())
+  storeId String
+  contactId String
+  provider String
+  oldState String
+  newState String
+  source String
+  sourceEventId String
+  occurredAt DateTime
+  @@unique([storeId, contactId, provider, sourceEventId])
+}
+model OrderSummary {
+  id String @id @default(cuid())
+  storeId String
+  shopifyOrderGid String
+  contactId String
+  financialStatus String
+  placedAt DateTime
+  currency String
+  totalAmount Float
+  cancelledAt DateTime?
+  @@unique([storeId, shopifyOrderGid])
+}
+model AbandonedCheckout {
+  id String @id @default(cuid())
+  storeId String
+  shopifyCheckoutGid String
+  contactId String
+  encryptedCheckoutUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  completedAt DateTime?
+  reminderStatus String @default("blocked")
+  sentAt DateTime?
+  @@unique([storeId, shopifyCheckoutGid])
+}
+model Segment {
+  id String @id @default(cuid())
+  storeId String
+  name String
+  description String @default("")
+  rulesJson String
+  resendSegmentId String?
+  updatedAt DateTime @updatedAt
+}
+model EmailTemplate {
+  id String @id @default(cuid())
+  storeId String
+  name String
+  category String
+  subject String
+  schemaJson String
+  html String @default("")
+  text String @default("")
+  resendTemplateId String?
+  publishedAt DateTime?
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+}
+model Workflow {
+  id String @id @default(cuid())
+  storeId String
+  name String
+  description String @default("")
+  kind String @default("welcome")
+  draftJson String
+  publishedJson String?
+  compiledJson String?
+  status String @default("draft")
+  version Int @default(0)
+  resendAutomationId String?
+  lastDeployedAt DateTime?
+  lastError String?
+  updatedAt DateTime @updatedAt
+}
+model WorkflowExecution {
+  id String @id @default(cuid())
+  storeId String
+  workflowId String
+  contactId String
+  businessEventKey String
+  resendRunId String?
+  status String
+  traceJson String @default("[]")
+  updatedAt DateTime @updatedAt
+  @@unique([storeId, workflowId, businessEventKey, contactId])
+}
+model EmailEvent {
+  id String @id @default(cuid())
+  storeId String
+  providerEventId String
+  resendEmailId String?
+  contactId String?
+  workflowId String?
+  eventType String
+  demo Boolean @default(true)
+  occurredAt DateTime @default(now())
+  metadataJson String @default("{}")
+  @@unique([storeId, providerEventId])
+  @@index([storeId, occurredAt])
+}
+model Suppression {
+  id String @id @default(cuid())
+  storeId String
+  email String
+  reason String
+  source String
+  createdAt DateTime @default(now())
+  @@unique([storeId, email])
+}
+model WebhookReceipt {
+  id String @id @default(cuid())
+  storeId String
+  provider String
+  eventId String
+  topic String
+  rawBodyHash String
+  status String @default("queued")
+  createdAt DateTime @default(now())
+  @@unique([storeId, provider, eventId])
+}
+model OutboxJob {
+  id String @id @default(cuid())
+  storeId String
+  key String @unique
+  kind String
+  payloadJson String
+  status String @default("pending")
+  attempts Int @default(0)
+  nextRunAt DateTime @default(now())
+  lockedAt DateTime?
+  leaseToken String?
+  lastError String?
+  createdAt DateTime @default(now())
+  @@index([status, nextRunAt])
+}
+model Campaign {
+  id String @id @default(cuid())
+  storeId String
+  name String
+  templateId String
+  segmentId String
+  status String @default("draft")
+  resendBroadcastId String?
+  recipientCount Int @default(0)
+  sentAt DateTime?
+  createdAt DateTime @default(now())
+}
+model AuditLog {
+  id String @id @default(cuid())
+  storeId String
+  action String
+  targetId String?
+  detail String
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,47 @@
+{
+  "name": "shopify-edm-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 3100",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1 --port 3100",
+    "db:generate": "prisma generate",
+    "db:generate:postgresql": "prisma generate --schema prisma/postgresql/schema.prisma",
+    "db:migrate:postgresql": "prisma migrate deploy --schema prisma/postgresql/schema.prisma",
+    "build:vercel": "npm run db:generate:postgresql && npm run build",
+    "db:migrate": "node scripts/prepare-db.mjs && prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "setup": "npm run db:generate && npm run db:migrate && npm run db:seed",
+    "test": "tsx scripts/test.ts",
+    "typecheck": "tsc --noEmit",
+    "worker": "tsx src/worker.ts",
+    "worker:once": "tsx src/worker.ts --once",
+    "test:browser": "node scripts/browser-smoke.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.0",
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.1.1",
+    "@xyflow/react": "^12.9.0",
+    "dotenv": "^18.0.8",
+    "lucide-react": "^0.468.0",
+    "next": "^16.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "svix": "^1.76.0",
+    "zod": "^4.1.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "prettier": "^3.9.10",
+    "prisma": "6.19.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

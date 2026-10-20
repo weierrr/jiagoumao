@@ -1,0 +1,11 @@
+.env*
+!.env.example
+.agents/
+skills-lock.json
+.next/
+node_modules/
+prisma/*.db*
+*.tsbuildinfo
+docs/*.png
+test-results/
+playwright-report/
