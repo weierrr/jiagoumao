@@ -1,4 +1,5 @@
 import './styles.css'
+import { formwinkDemos, formwinkPreviewUrl } from './strategy-demos.js'
 
 let catalog = []
 let storeMap = {}
@@ -10,9 +11,10 @@ const handoffUrl = handoffParams.get('url') || ''
 const handoffFrom = handoffParams.get('from') || ''
 
 const state = {
-  query: handoffUrl, category: '全部品类', sort: '默认排序', view: 'grid',
+  growthGroups: [{field:'page', reverse:false}], growthGroupOpen:false, growthCollapsed:new Set(),
+  diagnosticView: 'board', diagnosticLayout: 'horizontal', diagnosticFilter: '全部', diagnosticPage: '全部', query: handoffUrl, category: '全部品类', sort: '默认排序', view: 'grid',
   favorites: new Set(JSON.parse(localStorage.getItem('add-to-cart-cat-favorites') || localStorage.getItem('scope-cat-favorites') || '[]')),
-  compare: new Set(), modal: null, loading: false, journeyLoading: false, journeyError: '', journeyExpanded: false, error: '', dataMode: 'idle', mode: 'combined', sourceUrl: '', activeStrategyId: null, processStartedAt: 0
+  compare: new Set(), modal: null, loading: false, journeyLoading: false, journeyError: '', journeyExpanded: false, error: '', dataMode: 'idle', mode: 'combined', sourceUrl: '', activeStrategyId: null, strategyDetailTab: 'effect', processStartedAt: 0
 }
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]))
@@ -389,6 +391,23 @@ const REAL_SCENE_LINKS = {
 }
 
 function strategyDemoTemplate(id, name) {
+  const demo = formwinkDemos[id]
+  if (demo) {
+    const url = formwinkPreviewUrl(id)
+    const image = `/strategy-demos/${id}.png`
+    return `<div class="case-reference formwink-reference">
+      <div class="case-shot" aria-label="FormWink ${escapeHtml(name)} 实际模块截图">
+        <div class="case-browser"><i></i><i></i><i></i><span>formwink.com · 店铺效果预览</span></div>
+        <div class="case-image">
+          <img src="${image}" alt="FormWink ${escapeHtml(name)} · ${escapeHtml(demo.status)}" loading="lazy">
+          <button class="case-zoom-button" type="button" data-zoom-image="${image}" data-zoom-title="FormWink · ${escapeHtml(name)}" data-zoom-url="${escapeHtml(url)}" aria-label="放大查看 FormWink 策略截图"></button>
+        </div>
+        <div class="case-caption"><span>FormWink · ${escapeHtml(demo.status)}</span><strong>${escapeHtml(name)}</strong><p>${escapeHtml(demo.summary)}</p></div>
+        <a class="case-open" href="${escapeHtml(url)}" target="_blank" rel="noopener">打开策略预览 ↗</a>
+      </div>
+      <aside class="demo-scenes"><span>实际验证 · 2026-10-13</span><p>${escapeHtml(demo.verification)}</p><p>截图来自 FormWink 店铺实测。预览中的购物车操作真实生效，请勿提交订单。</p></aside>
+    </div>`
+  }
   const scene = REAL_SCENE_LINKS[id]
   const primary = scene.links[0]
   const sceneLinks = scene.links.map(([brand, url]) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><span>${escapeHtml(brand)}</span><b>打开场景</b></a>`).join('')
@@ -430,25 +449,22 @@ function flatStrategies() {
 function strategyDetailTemplate(strategy) {
   const example = STRATEGY_EXAMPLES[strategy.id]
   const [tool, steps] = configGuideFor(strategy)
-  return `<aside class="strategy-detail-drawer" aria-live="polite">
-    <div class="strategy-detail-kicker"><span>${String(strategy.index).padStart(2, '0')}</span><b>${escapeHtml(strategy.stage)}</b></div>
-    <h3>${escapeHtml(strategy.name)}</h3>
-    <p class="strategy-detail-subtitle">${escapeHtml(strategy.group)} · 看这个策略在真实电商页面里通常怎么出现。</p>
-    <div class="strategy-example"><div><small>配置前</small><p>${escapeHtml(example[0])}</p></div><div><small>配置后</small><p>${escapeHtml(example[1])}</p></div></div>
-    ${strategyDemoTemplate(strategy.id, strategy.name)}
-    <section class="config-guide" aria-labelledby="config-guide-title">
-      <div class="config-guide-head"><span>HOW TO CONFIGURE</span><h4 id="config-guide-title">如何配置</h4></div>
-      <div class="config-guide-body"><div><small>后台入口 / 首选方案</small><strong>${escapeHtml(tool)}</strong></div><div><small>配置步骤</small><p>${escapeHtml(steps)}</p></div></div>
-    </section>
-    ${toolResourceTemplate(strategy)}
-  </aside>`
+  const demo = formwinkDemos[strategy.id]
+  const recommendation = RECOMMENDATION_COPY[strategy.id]
+  const tab = state.strategyDetailTab
+  const tabs = [['effect','看效果'],['config','怎么配置'],['next','增长建议']]
+  let content = ''
+  if (tab === 'effect') content = `<div class="strategy-example"><div><small>配置前 · 示意</small><p>${escapeHtml(example[0])}</p></div><div><small>配置后 · 示意</small><p>${escapeHtml(example[1])}</p></div></div>${strategyDemoTemplate(strategy.id, strategy.name)}`
+  if (tab === 'config') content = `<section class="config-guide" aria-labelledby="config-guide-title"><div class="config-guide-head"><span>HOW TO CONFIGURE</span><h4 id="config-guide-title">如何配置</h4></div><div class="config-guide-body"><div><small>首选配置方式</small><strong>${escapeHtml(demo?.method || tool)}</strong></div><div><small>${demo ? 'FormWink 实施步骤' : '通用配置步骤'}</small>${demo ? `<ol>${demo.steps.map(step => `<li>${escapeHtml(step)}</li>`).join('')}</ol><p class="demo-notice">${escapeHtml(demo.limitation)}</p>` : `<p>${escapeHtml(steps)}</p>`}</div></div></section>${demo ? '<p class="demo-configuration-note">当前演示由主题实现，无需安装 App。正式优惠或套装方案需先确认需求，再选择并验证工具。</p>' : toolResourceTemplate(strategy)}`
+  if (tab === 'next') content = `<section class="strategy-next"><h4>下一步怎么做</h4><p>${escapeHtml(demo?.next || recommendation?.[1] || '先核实商品和业务条件，在测试环境配置一个策略，再观察效果。')}</p><h4>看哪些指标</h4><p>${escapeHtml(demo?.metrics || recommendation?.[2] || '同时观察转化率、客单价和毛利。')}</p><h4>如何判断有效</h4><p>一次只修改一个主要变量，记录策略曝光与使用情况。按设备和来源比较结果，并同时核对折扣、履约成本及结账完成率；演示成功不代表经营收益已被证明。</p></section>`
+  return `<aside class="strategy-detail-drawer" aria-live="polite"><div class="strategy-detail-kicker"><span>${String(strategy.index).padStart(2, '0')}</span><b>${escapeHtml(strategy.stage)}</b></div><h3>${escapeHtml(strategy.name)}</h3><p class="strategy-detail-subtitle">${escapeHtml(strategy.group)} · ${escapeHtml(demo?.page || GROWTH_STRATEGY_PAGES[strategy.id] || '查看适用页面')}</p><div class="strategy-detail-tabs" role="tablist" aria-label="策略详情">${tabs.map(([id,label])=>`<button type="button" id="strategy-tab-${id}" role="tab" aria-selected="${tab===id}" aria-controls="strategy-panel" data-strategy-tab="${id}">${label}</button>`).join('')}</div><div id="strategy-panel" role="tabpanel" aria-labelledby="strategy-tab-${tab}">${content}</div></aside>`
 }
 
 function strategyLibraryTemplate() {
   const strategies = flatStrategies()
   return `<section class="strategy-library">
     <div class="strategy-library-head">
-      <div><p class="eyebrow">FULL UPSELL PLAYBOOK</p><h2>28 类客单价策略，知道怎么落地</h2><p>透视猫的客单价策略库：查看展示示例、配置步骤和公开案例，为诊断后的测试选择方案。</p></div>
+      <div><p class="eyebrow">FULL UPSELL PLAYBOOK</p><h2>28 类客单价策略，知道怎么落地</h2><p>加购猫的客单价策略库：查看展示示例、配置步骤和公开案例，为诊断后的测试选择方案。</p></div>
       <div class="strategy-total"><strong>28</strong><span>类策略</span></div>
     </div>
     <div class="strategy-workbench">
@@ -458,7 +474,7 @@ function strategyLibraryTemplate() {
           <div>${group.strategies.map(([id,name]) => {
             const item = strategies.find(x => x.id === id)
             return `<button type="button" class="strategy-item idle" data-strategy-id="${escapeHtml(id)}">
-              <span class="strategy-no">${String(item.index).padStart(2, '0')}</span><strong>${escapeHtml(name)}</strong><em>查看详情</em><b aria-hidden="true">›</b>
+              <span class="strategy-no">${String(item.index).padStart(2, '0')}</span><strong>${escapeHtml(name)}</strong><em>${escapeHtml(formwinkDemos[id]?.status || '查看详情')}</em><b aria-hidden="true">›</b>
             </button>`
           }).join('')}</div>
         </article>`).join('')}</div>
@@ -481,12 +497,12 @@ function strategyDrawerTemplate() {
 
 function mainMenuTemplate() {
   const strategies = isStrategiesPage()
-  return `<header class="main-menu">
+  return `<header class="main-menu ${window.scrollY > 64 ? 'is-floating' : ''}">
     <div class="main-menu-inner">
-      <a class="menu-brand" href="${routePath('/')}" data-home-reset><span class="brand-mark" aria-hidden="true">${icons.bot}</span><span><strong>透视猫</strong><small>SHOPIFY · GROWTH REVIEW</small></span></a>
+      <a class="menu-brand" href="${routePath('/')}" data-home-reset><span class="brand-mark" aria-hidden="true">${icons.bot}</span><span><strong>加购猫</strong></span></a>
       <nav aria-label="主菜单">
-      <a class="nav-report ${!strategies && state.dataMode === 'live' ? 'active' : ''}" href="${routePath('/')}" data-load-sample-report><span>示例诊断</span></a>
-      <a class="${strategies ? 'active' : ''}" href="${routePath('/strategies')}">增长策略库</a>
+      <a class="nav-report ${!strategies ? 'active' : ''}" href="${routePath('/')}" data-load-sample-report><span>示例诊断</span></a>
+      <a class="${strategies ? 'active' : ''}" href="${routePath('/strategies')}" data-strategies-nav ${strategies ? 'aria-current="page"' : ''}>增长策略库</a>
       </nav>
       <button class="menu-status contact-author" type="button" data-contact-author><span>联系作者</span></button>
     </div>
@@ -497,12 +513,12 @@ function modeSelectorTemplate() {
   return `<div class="mode-selector" role="tablist" aria-label="诊断目标">
     <button class="mode-card combined ${state.mode === 'combined' ? 'active' : ''}" data-mode="combined" role="tab" aria-selected="${state.mode === 'combined'}"><span class="mode-kicker">MODE 01 · FULL REVIEW</span><strong>联合诊断</strong><small>一次扫描，同时看客单价和转化率。</small><em>先修漏斗，再找订单金额增长点</em></button>
     <button class="mode-card ${state.mode === 'aov' ? 'active' : ''}" data-mode="aov" role="tab" aria-selected="${state.mode === 'aov'}"><span class="mode-kicker">MODE 02 · AOV</span><strong>客单价增长</strong><small>已经想买的人，如何自然地多买一点？</small><em>组合、门槛、升级与复购机会</em></button>
-    <button class="mode-card conversion ${state.mode === 'conversion' ? 'active' : ''}" data-mode="conversion" role="tab" aria-selected="${state.mode === 'conversion'}"><span class="mode-kicker">MODE 03 · CVR</span><strong>转化率增长</strong><small>为什么访问、加购或结账后没有买？</small><em>页面阻塞点、证据、优先修复与 SOP</em></button>
+    <button class="mode-card conversion ${state.mode === 'conversion' ? 'active' : ''}" data-mode="conversion" role="tab" aria-selected="${state.mode === 'conversion'}"><span class="mode-kicker">MODE 03 · CVR</span><strong>转化率增长</strong><small>为什么访问、加购或结账后没有买？</small><em>页面阻塞点、证据、优先修复与验证指标</em></button>
   </div>`
 }
 
 function heroCopyTemplate() {
-  if (state.mode === 'combined') return { title:'扫描店铺<br><span>一次看清增长机会</span>', copy:'输入一个 Shopify 店铺，透视转化阻塞点、客单价机会和真实购买路径。先修漏斗，再放大订单价值。' }
+  if (state.mode === 'combined') return { title:'致力于提高每个店铺<br><span>的转化率和客单价</span>', copy:'输入一个 Shopify 店铺，透视转化阻塞点、客单价机会和真实购买路径。先修漏斗，再放大订单价值。' }
   if (state.mode === 'conversion') return { title:'扫描店铺<br><span>找出转化阻塞点</span>', copy:'输入一个 Shopify 店铺，检查首页、商品页、购物车和结账入口，找出影响购买决策的页面问题，并给出修复顺序。' }
   return { title:'扫描店铺<br><span>找出客单价增长点</span>', copy:'输入一个 Shopify 店铺，识别组合、门槛、升级和复购机会，把已经想买的人自然地引导为更高价值订单。' }
 }
@@ -525,21 +541,15 @@ function conversionDiagnosticTemplate() {
   const rules = report.rules || []
   const observed = rules.filter(x => x.status === '已观察到')
   const high = rules.filter(x => x.priority === 'high' && x.status !== '已观察到').slice(0, 3)
-  const pageTypes = ['首页与落地页','Collection Page','商品页','Cart & Navigation','Checkout Entry','Mobile Experience','Trust & Performance']
+  const pageTypes = [['首页与落地页','首页与落地页'],['Collection Page','商品集合页'],['商品页','商品页'],['Cart & Navigation','购物车与导航'],['Checkout Entry','结账入口'],['Mobile Experience','移动端体验'],['Trust & Performance','信任与性能']]
   const statusLabel = { '已观察到':'已观察到', '未观察到':'未观察到', '无法确认':'无法确认' }
   return `<section class="conversion-panel">
     <div class="conversion-head"><div><p class="eyebrow">CVR DIAGNOSTIC / PUBLIC EVIDENCE</p><h2>转化率增长诊断</h2><p>${escapeHtml(report.summary)} 本次只读取公开店铺页面，未连接 Shopify Analytics。</p></div><div class="conversion-score"><strong>${observed.length}<small>/${rules.length}</small></strong><span>观察到相关信号</span></div></div>
     <div class="conversion-boundary"><strong>数据边界</strong><span>未观察到不代表后台没有配置；结账字段、真实支付和购买后流程需要后台或授权检查。</span></div>
-    <div class="page-progress">${pageTypes.map(type => { const items = rules.filter(x => x.pageType === type); const done = items.filter(x => x.status !== '未观察到').length; const total = items.length; return `<div><span>${escapeHtml(type)}</span><b>${done} / ${total}</b><i><em style="width:${total ? Math.round(done / total * 100) : 0}%"></em></i></div>` }).join('')}</div>
+    <div class="page-progress">${pageTypes.map(([type,label]) => { const items = rules.filter(x => x.pageType === type); const done = items.filter(x => x.status !== '未观察到').length; const total = items.length; return `<div><span>${escapeHtml(label)}</span><b>${done} / ${total}</b><i><em style="width:${total ? Math.round(done / total * 100) : 0}%"></em></i></div>` }).join('')}</div>
     <div class="conversion-priority"><div><p class="eyebrow">FIRST FIXES / 先改这三项</p><h3>高优先级任务</h3></div><div class="conversion-cards">${high.map(rule => `<article class="conversion-card priority-${rule.priority}"><header><span>${escapeHtml(rule.id)}</span><b>${escapeHtml(statusLabel[rule.status])}</b><em>高优先级</em></header><h4>${escapeHtml(rule.title)}</h4><p><strong>证据：</strong>${escapeHtml(rule.evidence)}</p><p><strong>动作：</strong>${escapeHtml(rule.action)}</p><p><strong>验证：</strong>${escapeHtml((rule.metrics || []).join('、'))}</p><small>${escapeHtml(rule.limitation)}</small></article>`).join('') || '<p class="muted">当前没有可直接排序的高优先级公开问题。</p>'}</div></div>
     <details class="conversion-all"><summary><span>查看全部 ${rules.length} 项检查</span><b>${rules.filter(x=>x.status === '无法确认').length} 项无法确认</b></summary><div>${rules.map(rule => `<article class="conversion-row"><div><span>${escapeHtml(rule.id)}</span><strong>${escapeHtml(rule.title)}</strong><b class="status-${rule.status === '已观察到' ? 'seen' : rule.status === '无法确认' ? 'unknown' : 'missing'}">${escapeHtml(statusLabel[rule.status])}</b></div><p>${escapeHtml(rule.evidence)}</p><p><strong>动作：</strong>${escapeHtml(rule.action)} <strong>指标：</strong>${escapeHtml((rule.metrics || []).join('、'))}</p></article>`).join('')}</div></details>
-    ${conversionSopTemplate()}
   </section>`
-}
-
-function conversionSopTemplate() {
-  const days = [['DAY 1','建立基线','连接 Analytics 后记录 sessions、加购、到达结账和完成结账；未连接时只记录公开页面状态。'],['DAY 2–3','修复高确定性问题','补齐配送、退换、评价和主 CTA，删除结账前不必要的干扰。'],['DAY 4–7','走通移动端路径','用真实手机尺寸复测：首页 → 商品页 → 变体 → 加购 → 购物车 → 结账入口。'],['WEEK 2','一次只测一个变量','测试 CTA 文案、固定加购栏、评价位置或到货日期位置，预先定义主指标和护栏指标。'],['WEEK 3–4','复盘与推广','同时看转化率、客单价、毛利、退款率；样本不足时不宣布改版获胜。']]
-  return `<div class="cvr-sop"><div><p class="eyebrow">30-DAY OPERATING SOP</p><h3>30 天执行与验证计划</h3><p>每一步都绑定执行动作和验证指标，公开诊断不会填入估算的转化率或提升百分比。</p></div><div class="sop-steps">${days.map(([label,title,copy]) => `<article><span>${label}</span><strong>${title}</strong><p>${copy}</p></article>`).join('')}</div></div>`
 }
 
 function filteredProducts() {
@@ -636,6 +646,87 @@ function strategySourceTemplate(strategy) {
   </div>`
 }
 
+function storeOverviewTemplate(store) {
+  const profile = store.profile || {}
+  const url = profile.profileSourceUrl || store.sourceUrl
+  const range = profile.priceRange
+  const currency = profile.currency || '币种未公开'
+  const apps = (store.apps || []).filter(name => !name.startsWith('未发现'))
+  return `<div class="store-overview">
+    <a class="store-home-preview" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(screenshotUrl(url))}" alt="${escapeHtml(store.name)} 主页预览" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true;this.parentElement.classList.add('preview-unavailable')"><span>主页预览 · 打开店铺 ↗</span><small>预览未加载时可直接打开店铺</small></a>
+    <div class="store-overview-content"><a class="diagnostic-source-url" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(store.domain)}</a><h3>${escapeHtml(store.name)}</h3><p>${escapeHtml(store.description)}</p>
+    <div class="store-profile-facts"><div><small>公开品类</small><strong>${escapeHtml(store.category === '未公开' ? '公开商品类型未提供' : store.category)}</strong></div><div><small>读取商品 · 非全店总数</small><strong>${store.products}</strong></div><div><small>样本价格区间</small><strong>${range ? `${escapeHtml(currency)} ${range.min.toFixed(2)}–${range.max.toFixed(2)}` : '公开价格未提供'}</strong></div><div><small>主题信号</small><strong>${escapeHtml(store.theme)}</strong></div></div>
+    <div class="store-profile-extra" aria-label="店铺补充信息">
+      <div><small>Shopify 原始域名</small><strong>${profile.shopDomain ? `<a href="https://${escapeHtml(profile.shopDomain)}" target="_blank" rel="noopener">${escapeHtml(profile.shopDomain)} ↗</a>` : '公开页面未提供'}</strong>${profile.shopDomainSource ? `<span>来源：${escapeHtml(profile.shopDomainSource)}</span>` : ''}</div>
+      <div><small>最近商品更新 · 本次样本</small><strong>${profile.latestProductUpdatedAt ? escapeHtml(new Date(profile.latestProductUpdatedAt).toLocaleDateString('zh-CN')) : '公开目录未提供'}</strong><span>商品更新时间，不代表全店编辑时间${profile.productUpdatedDateCount ? ` · ${profile.productUpdatedDateCount} 条有效日期` : ''}</span></div>
+      <div><small>最早商品创建 · 本次样本</small><strong>${profile.earliestProductCreatedAt ? escapeHtml(new Date(profile.earliestProductCreatedAt).toLocaleDateString('zh-CN')) : '公开目录未提供'}</strong><span>商品创建日期，不等同店铺成立时间</span></div>
+      <div><small>最早商品发布 · 本次样本</small><strong>${profile.earliestProductPublishedAt ? escapeHtml(new Date(profile.earliestProductPublishedAt).toLocaleDateString('zh-CN')) : '公开目录未提供'}</strong><span>取本次读取商品的最早发布时间</span></div>
+      <div><small>日期数据来源</small><strong>${profile.productDateSourceUrl ? `<a href="${escapeHtml(profile.productDateSourceUrl)}" target="_blank" rel="noopener">公开商品接口 ↗</a>` : '待重新扫描'}</strong><span>采样 ${profile.productDateSampleCount || store.products || 0} 件商品 · 非全店历史</span></div>
+      <div><small>展示货币</small><strong>${escapeHtml(currency)}</strong><span>以公开页面当前币种为准</span></div>
+    </div>
+    <div class="store-profile-apps"><b>App / 技术线索</b>${apps.length ? apps.map(app => `<span>${escapeHtml(app)}</span>`).join('') : '<span>未识别到明确线索</span>'}</div>
+    <p class="store-profile-note">公开页面资料${profile.scannedAt ? ` · 扫描时间 ${escapeHtml(new Date(profile.scannedAt).toLocaleString('zh-CN'))}` : ''}。主页预览由第三方截图服务生成，可能与扫描时间不同。</p></div>
+  </div>`
+}
+
+// Primary implementation page; this is not a claim about where evidence was observed.
+const GROWTH_STRATEGY_PAGES = {
+  'discount-code':'首页', 'landing-bundle':'首页', 'quiz-recommendation':'首页',
+  'compare-at':'商品页', 'bundle':'商品页', 'quantity-break':'商品页', 'product-recs':'商品页',
+  'frequently-bought':'商品页', 'sticky-add':'商品页', 'upsell-upgrade':'商品页',
+  'subscription':'商品页', 'back-in-stock':'商品页', 'limited-time':'商品页',
+  'low-stock':'商品页', 'social-proof':'商品页', 'free-returns':'商品页', 'personalization':'商品页',
+  'free-shipping':'购物车', 'gift-threshold':'购物车', 'cart-progress':'购物车',
+  'cart-drawer':'购物车', 'cart-upsell':'购物车', 'gift-wrap':'购物车',
+  'checkout-upsell':'结账', 'post-purchase':'购买后',
+  'membership':'复购与会员', 'social-share':'复购与会员', 'free-gift-card':'复购与会员'
+}
+
+const GROWTH_GROUP_FIELDS = {page:'实施页面', label:'诊断状态', group:'策略类型', priority:'优先级'}
+function growthGroupValue(row, field) { return field === 'priority' ? (row.action ? row.priority || '未设置' : '不适用') : row[field] || '未分类' }
+function growthGroupTree(rows, level = 0, path = []) {
+  const rule = state.growthGroups[level]
+  if (!rule) return []
+  const preferred = {page:['首页','商品页','购物车','结账','购买后','复购与会员','待归类'], label:['已验证','有线索','下一步增长建议'], priority:['高','中','低','未设置','不适用']}[rule.field] || []
+  const values = [...new Set(rows.map(row => growthGroupValue(row, rule.field)))]
+  values.sort((a,b) => { const ai=preferred.indexOf(a), bi=preferred.indexOf(b); return (ai<0?999:ai)-(bi<0?999:bi) || a.localeCompare(b,'zh-CN') })
+  if (rule.reverse) values.reverse()
+  return values.map(value => {
+    const items = rows.filter(row => growthGroupValue(row, rule.field) === value)
+    const key = JSON.stringify([...path, [rule.field,value]])
+    return {value, field:rule.field, rows:items, key, level, children:growthGroupTree(items,level+1,[...path,[rule.field,value]])}
+  })
+}
+function growthGroupSettingsTemplate() {
+  return `<div class="growth-group-control"><button class="growth-group-trigger" data-growth-group-open aria-expanded="${state.growthGroupOpen}">分组 <b>${state.growthGroups.length}</b></button>${state.growthGroupOpen ? `<section class="growth-group-popover" aria-label="设置分组条件"><header><strong>设置分组条件</strong><button data-growth-group-close aria-label="关闭分组设置">×</button></header><p>从上到下依次分组，设置同时应用于表格和看板。</p>${state.growthGroups.map((rule,i)=>`<div class="growth-group-rule"><select data-growth-group-field="${i}" aria-label="第${i+1}级分组字段">${Object.entries(GROWTH_GROUP_FIELDS).map(([key,name])=>`<option value="${key}" ${rule.field===key?'selected':''} ${state.growthGroups.some((r,j)=>j!==i&&r.field===key)?'disabled':''}>${name}</option>`).join('')}</select><div class="growth-group-order">${[[false,'选项顺序'],[true,'选项倒序']].map(([v,t])=>`<button data-growth-group-order="${i}" data-reverse="${v}" aria-pressed="${rule.reverse===v}">${t}</button>`).join('')}</div><button data-growth-group-up="${i}" aria-label="上移第${i+1}级分组" ${i===0?'disabled':''}>↑</button><button data-growth-group-remove="${i}" aria-label="删除第${i+1}级分组">×</button></div>`).join('')}<footer><button data-growth-group-add ${state.growthGroups.length===4?'disabled':''}>＋ 添加分组条件</button><button data-growth-group-clear>清除分组</button></footer></section>` : ''}</div>`
+}
+
+function growthWorkspaceTemplate(observed, opportunities) {
+  const statuses = ['已验证', '有线索', '下一步增长建议']
+  const groups = ['首页', '商品页', '购物车', '结账', '购买后', '复购与会员', '待归类']
+  const rows = [
+    ...observed.map(x => ({ ...x, label: x.status === '已发现' ? '有线索' : x.status, title: x.name, action: false })),
+    ...opportunities.map(x => ({ ...x, label: '下一步增长建议', title: x.recommendationTitle, action: true }))
+  ]
+  rows.forEach(x => { x.page = GROWTH_STRATEGY_PAGES[x.id] || '待归类' })
+  const filtered = rows.filter(x => (state.diagnosticFilter === '全部' || x.label === state.diagnosticFilter) && (state.diagnosticPage === '全部' || x.page === state.diagnosticPage))
+  const tag = x => `<span class="growth-tag ${x.action ? 'action' : x.label === '已验证' ? 'verified' : 'signal'}">${escapeHtml(x.label)}</span>`
+  const detail = x => `<details class="growth-detail"><summary>${x.action ? '执行步骤与验证指标' : '查看证据与来源'}</summary>${x.action ? `<p><b>实施动作：</b>${escapeHtml(x.recommendationAction)}</p><p><b>验证指标：</b>${escapeHtml(x.recommendationMetric)}</p>` : `<p class="growth-raw">${escapeHtml(x.evidence)}</p>${x.evidenceTypes?.length ? `<p>证据类型：${escapeHtml(x.evidenceTypes.join(' / '))}</p>` : ''}${x.coverage?.length ? `<p>覆盖范围：${escapeHtml(x.coverage.join(' / '))}</p>` : ''}${x.sampleTotal ? `<p>商品验证：${x.sampleHits} / ${x.sampleTotal}</p>` : ''}${strategySourceTemplate(x)}`}</details>`
+  const example = x => x.id ? `<button class="growth-example" data-strategy-id="${escapeHtml(x.id)}">查看策略示例 ↗</button>` : ''
+  const priority = x => x.action ? `<span class="growth-priority ${x.priority === '高' ? 'high' : ''}">${escapeHtml(x.priority)}优先</span>` : '—'
+  const card = x => `<article class="growth-card">${tag(x)}<h4>${escapeHtml(x.title)}</h4><div class="growth-card-meta"><span>${escapeHtml(x.page)} · ${escapeHtml(x.group || x.name)}</span>${x.action ? priority(x) : `<span>${escapeHtml(x.evidenceLevel || (x.label === '已验证' ? '强证据' : '中证据'))}</span>`}</div>${x.action ? `<p>${escapeHtml(x.recommendationAction)}</p>` : `<p>${x.label === '已验证' ? '购买路径中已观察到相关行为或文案。' : '公开页面或源码中发现相关线索，需进一步验证。'}</p>`}${detail(x)}${example(x)}</article>`
+  const tableRow = x => `<tr><td><strong>${escapeHtml(x.title)}</strong>${x.action ? `<small>${escapeHtml(x.name)}</small>` : ''}</td><td>${tag(x)}</td><td><strong>${escapeHtml(x.page)}</strong><small>${escapeHtml(x.group || '增长建议')}</small></td><td>${priority(x)}</td><td>${detail(x)}</td><td>${example(x)}</td></tr>`
+  const groupHeader = node => `<button class="growth-group-heading" data-growth-group-toggle="${escapeHtml(node.key)}" aria-expanded="${!state.growthCollapsed.has(node.key)}"><span>${state.growthCollapsed.has(node.key)?'▸':'▾'}</span><small>${GROWTH_GROUP_FIELDS[node.field]}</small><strong>${escapeHtml(node.value)}</strong><b>${node.rows.length}</b></button>`
+  const tree = growthGroupTree(filtered)
+  const tableGroups = nodes => nodes.map(node => `<tr class="growth-group-table-row"><td colspan="6" style="padding-left:${14+node.level*22}px">${groupHeader(node)}</td></tr>${state.growthCollapsed.has(node.key)?'':node.children.length?tableGroups(node.children):node.rows.map(tableRow).join('')}`).join('')
+  const boardGroups = nodes => nodes.map(node=>`<section class="${node.level===0?'growth-lane':'growth-subgroup'}"><header>${groupHeader(node)}</header>${state.growthCollapsed.has(node.key)?'':node.children.length?`<div class="growth-subgroups">${boardGroups(node.children)}</div>`:`<div class="growth-lane-cards">${node.rows.map(card).join('')}</div>`}</section>`).join('')
+  return `<div class="growth-workspace">
+    <div class="growth-toolbar"><div><h3>增长诊断工作台</h3><p>自由设置分组，按页面、状态、策略类型或优先级整理记录。页面归类不代表已在该页验证。</p></div><div class="growth-view-switch" role="group" aria-label="诊断视图">${[['table','表格视图'],['board','看板视图']].map(([v,t])=>`<button data-growth-view="${v}" aria-pressed="${state.diagnosticView === v}">${t}</button>`).join('')}</div></div>
+    <div class="growth-controls">${growthGroupSettingsTemplate()}<label class="growth-page-filter">实施页面<select data-growth-page>${['全部',...groups.filter(p=>p !== '待归类' || rows.some(x=>x.page === p))].map(p=>`<option value="${p}" ${state.diagnosticPage === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label><div class="growth-filters" role="group" aria-label="筛选诊断状态">${['全部',...statuses].map(label=>`<button data-growth-filter="${label}" aria-pressed="${state.diagnosticFilter === label}">${label}<span>${label === '全部' ? rows.length : rows.filter(x=>x.label === label).length}</span></button>`).join('')}</div>${state.diagnosticView === 'board' ? `<div class="growth-layout-switch" role="group" aria-label="看板方向">${[['vertical','竖向看板'],['horizontal','横向看板']].map(([v,t])=>`<button data-growth-layout="${v}" aria-pressed="${state.diagnosticLayout === v}">${t}</button>`).join('')}</div>` : ''}</div>
+    ${state.diagnosticView === 'table' ? `<div class="growth-table-scroll"><table class="growth-table"><caption class="sr-only">增长诊断：证据发现与行动建议</caption><thead><tr><th scope="col">策略 / 行动</th><th scope="col">状态</th><th scope="col">实施页面 / 分类</th><th scope="col">优先级</th><th scope="col">证据 / 执行与验证</th><th scope="col">参考</th></tr></thead><tbody>${state.growthGroups.length ? tableGroups(tree) : filtered.map(tableRow).join('')}</tbody></table>${!filtered.length ? '<p class="growth-empty">当前状态暂无记录。可切换其他标签查看。</p>' : ''}</div>` : `<div class="growth-board ${state.diagnosticLayout}">${state.growthGroups.length ? boardGroups(tree) : `<section class="growth-lane"><header><h4>全部记录</h4><span>${filtered.length}</span></header><div class="growth-lane-cards">${filtered.map(card).join('')}</div></section>`}${!filtered.length ? '<p class="growth-empty">当前筛选暂无记录</p>' : ''}</div>`}
+  </div>`
+}
+
 function diagnosticTemplate() {
   if (state.dataMode !== 'live' || state.loading || state.journeyLoading) return ''
   const store = Object.values(storeMap)[0]
@@ -644,23 +735,10 @@ function diagnosticTemplate() {
   const observed = report.strategies.filter(x => ['已验证', '有线索', '已发现'].includes(x.status))
   const unconfirmed = report.strategies.filter(x => x.status === '无法确认')
   const opportunities = (report.opportunities || []).map(recommendationFor)
-  const diagnosticUrl = state.sourceUrl || store?.sourceUrl || ''
-  let diagnosticUrlLabel = diagnosticUrl
-  try {
-    const parsed = new URL(diagnosticUrl)
-    diagnosticUrlLabel = `${parsed.host}${parsed.pathname !== '/' ? parsed.pathname : ''}`
-  } catch {}
   return `<section class="diagnostic-panel">
-    <div class="diagnostic-head"><div><a class="eyebrow diagnostic-source-url" href="${escapeHtml(diagnosticUrl || '#')}" ${diagnosticUrl ? 'target="_blank" rel="noopener"' : ''} title="打开当前诊断店铺">${escapeHtml(diagnosticUrlLabel || '当前诊断店铺')}</a><h2>客单价增长诊断</h2><p>${escapeHtml(report.summary)}</p>${report.coverage?.products?.length ? `<div class="diagnostic-coverage"><span>本次覆盖商品</span>${report.coverage.products.map(product => `<b>${escapeHtml(product.segment)} · ${escapeHtml(product.title || '未命名商品')}</b>`).join('')}</div>` : ''}</div><div class="diagnostic-score"><strong>${report.foundCount}<small>/${report.total}</small></strong><span>观察到的线索</span></div></div>
-    <div class="diagnostic-columns"><div><h3>已验证 / 有线索</h3><div class="strategy-list">${observed.length ? observed.map((x,index)=>{
-      const label = x.status === '已发现' ? '有线索' : x.status
-      const evidenceTypes = (x.evidenceTypes || []).join(' + ')
-      const coverage = (x.coverage || []).join(' / ')
-      const sampleCoverage = x.sampleTotal ? `<span>商品验证：${x.sampleHits} / ${x.sampleTotal}</span>` : ''
-      const interaction = x.interactionLevel ? `<span>动作：${escapeHtml(x.interactionLevel)}</span>` : ''
-      return `<article class="strategy-card found evidence-${x.status === '已验证' ? 'strong' : 'medium'}"><div><span class="strategy-index">${String(index + 1).padStart(2, '0')}</span><span class="evidence-pill">${escapeHtml(label)}</span><strong>${escapeHtml(x.name)}</strong><em>${escapeHtml(x.group)} · ${escapeHtml(x.evidenceLevel || (x.status === '已验证' ? '强证据' : '中证据'))}</em></div><p>${escapeHtml(x.evidence)}</p><div class="evidence-meta">${evidenceTypes ? `<span>证据：${escapeHtml(evidenceTypes)}</span>` : ''}${coverage ? `<span>覆盖：${escapeHtml(coverage)}</span>` : ''}${interaction}${sampleCoverage}</div>${strategySourceTemplate(x)}</article>`
-    }).join('') : '<p class="muted">本次公开会话暂未观察到明确的 Upsell 信号。</p>'}</div></div>
-      <div><h3>下一步增长建议</h3><div class="strategy-list">${opportunities.map((x,index)=>`<article class="strategy-card opportunity"><div><span class="strategy-index">${String(index + 1).padStart(2, '0')}</span><span class="priority ${x.priority === '高' ? 'high' : ''}">${x.priority}优先</span><strong>${escapeHtml(x.recommendationTitle)}</strong><em>${escapeHtml(x.name)}</em></div><p><b>建议：</b>${escapeHtml(x.recommendationAction)}</p><p><b>验证：</b>${escapeHtml(x.recommendationMetric)}</p><button type="button" class="strategy-example-link" data-strategy-id="${escapeHtml(x.id)}"><span>策略示例</span><b>查看配置前后与真实参考 ›</b></button></article>`).join('')}</div></div></div>
+    ${storeOverviewTemplate(store)}
+    <div class="diagnostic-head"><div><h2>客单价增长诊断</h2><p>${escapeHtml(report.summary)}</p>${report.coverage?.products?.length ? `<div class="diagnostic-coverage"><span>本次覆盖商品</span>${report.coverage.products.map(product => `<b>${escapeHtml(product.segment)} · ${escapeHtml(product.title || '未命名商品')}</b>`).join('')}</div>` : ''}</div><div class="diagnostic-score"><strong>${report.foundCount}<small>/${report.total}</small></strong><span>观察到的线索</span></div></div>
+    ${growthWorkspaceTemplate(observed, opportunities)}
     ${unconfirmed.length ? `<div class="unconfirmed-strip"><strong>无法确认</strong>${unconfirmed.map(x=>`<span>${escapeHtml(x.name)}：${escapeHtml(x.evidence)}</span>`).join('')}</div>` : ''}
     <div class="diagnostic-note"><span>证据边界</span><p>“已验证”表示真实买家路径中观察到页面文案或行为变化；“有线索”表示公开页面或源码命中；“未观察到”不代表后台一定没有配置。当前扫描覆盖公开首页、购物车页和代表性商品路径。</p></div>
   </section>`
@@ -708,7 +786,7 @@ function runningProcessTemplate(mode = 'static') {
   const title = isJourney ? '正在验证购买路径' : '正在分析店铺公开数据'
   const copy = isJourney
     ? '浏览器正在模拟一次真实购买：打开商品页、加购、读取购物车、修改数量并尝试进入结账入口。'
-    : '透视猫正在读取公开商品目录和页面信号，整理转化阻塞点、客单价机会与证据边界。'
+    : '加购猫正在读取公开商品目录和页面信号，整理转化阻塞点、客单价机会与证据边界。'
   const eyebrow = isJourney ? 'REAL BROWSER / INTERACTIVE VERIFICATION' : 'PUBLIC DATA / SHOPIFY GROWTH REVIEW'
   const logs = isJourney ? ['准备匿名浏览器会话','等待商品页加载完成','观察购物车和加购组件','记录无法确认的步骤'] : ['检查 Shopify URL','读取公开商品目录','提取价格、变体和页面信号','生成转化与客单价诊断']
   const currentIndex = Math.min(steps.length - 1, Math.floor(progress / (100 / steps.length)))
@@ -799,7 +877,7 @@ function valuePropTemplate() {
     <div class="aov-map-head">
       <p class="eyebrow">SHOPIFY GROWTH MAP</p>
       <h2>增长不只看流量，也要看每一步怎么成交。</h2>
-      <p>透视猫沿着一次购买旅程，先找出转化损失，再识别客单价机会：哪里让用户犹豫，哪里可以让已经想买的人自然多买一点。</p>
+      <p>加购猫沿着一次购买旅程，先找出转化损失，再识别客单价机会：哪里让用户犹豫，哪里可以让已经想买的人自然多买一点。</p>
     </div>
     <div class="aov-flow">
       <article>
@@ -843,7 +921,7 @@ function render() {
       <main>
         ${strategiesPage ? `${strategyLibraryTemplate()}` : `
         <section class="hero">
-          <div class="hero-copy"><p class="eyebrow">选品猫产品家族 · SHOPIFY GROWTH REVIEW</p><h1>${heroCopy.title}</h1><p>${heroCopy.copy}</p></div>
+          <div class="hero-copy"><p class="eyebrow">基于第一性原理 · SHOPIFY GROWTH REVIEW</p><h1>${heroCopy.title}</h1><p>${heroCopy.copy}</p></div>
           <form class="search-panel" id="search-form">
             <div class="scanner-icon">${icons.scan}</div>
             <input id="search-input" value="${safeQuery}" placeholder="粘贴 Shopify 店铺 / 商品 URL 开始诊断" autocomplete="off" />
@@ -861,7 +939,7 @@ function render() {
         ${combinedDiagnosticSummaryTemplate()}
         ${state.mode !== 'conversion' ? diagnosticTemplate() : ''}
         ${conversionDiagnosticTemplate()}
-        ${publicEvidenceTemplate(list)}`}
+        `}
       </main>
       ${state.compare.size ? `<div class="compare-dock"><div><span>${state.compare.size}</span><p><strong>已加入对比</strong><small>最多选择 3 件商品</small></p></div><div class="compare-thumbs">${[...state.compare].map(id=>{const p=catalog.find(x=>x.id===id);return p ? `<i style="${visualStyle(p)}" title="${escapeHtml(p.name)}"></i>` : ''}).join('')}</div><button id="clear-compare">清空</button><button id="open-compare" ${state.compare.size<2?'disabled':''}>生成对比报告 ${icons.arrow}</button></div>` : ''}
       ${state.activeStrategyId ? strategyDrawerTemplate() : ''}
@@ -925,10 +1003,46 @@ function modalTemplate() {
   return `<div class="modal-layer compare-layer"><button class="modal-backdrop" data-close></button><section class="compare-report"><button class="modal-close" data-close>${icons.close}</button><p class="eyebrow">AUTO-GENERATED COMPARISON</p><h2>商品透视对比</h2><p>基于公开页面字段生成，所有结论均可回溯到对应商品。</p><div class="compare-table"><div class="compare-row compare-head"><b>对比维度</b>${selected.map(p=>`<div><i style="background:${p.image}"></i><strong>${p.name}</strong><span>${p.brand}</span></div>`).join('')}</div>${fields.map(([name,get])=>`<div class="compare-row"><b>${name}</b>${selected.map(p=>`<span>${get(p) || '—'}</span>`).join('')}</div>`).join('')}</div><div class="report-insight"><span>AI 观察</span><p>${selected.sort((a,b)=>b.trend-a.trend)[0].name} 当前增长信号最强；${selected.sort((a,b)=>a.price-b.price)[0].name} 价格门槛最低。建议进一步验证广告投放强度与近 30 天价格变化。</p></div></section></div>`
 }
 
+function navigatePage(path) {
+  if (window.location.pathname !== path) window.history.pushState(null, '', path)
+  state.activeStrategyId = null
+  state.modal = null
+  window.scrollTo({ top: 0, behavior: 'instant' })
+  render()
+}
+
+function isPlainNavigation(e) {
+  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
+}
+
+window.addEventListener('popstate', () => {
+  state.activeStrategyId = null
+  state.modal = null
+  render()
+})
+
 function bindEvents() {
+  const updateGrowthGroups = () => { state.growthCollapsed.clear(); render() }
+  document.querySelector('[data-growth-group-open]')?.addEventListener('click',()=>{state.growthGroupOpen=!state.growthGroupOpen;render()})
+  document.querySelector('[data-growth-group-close]')?.addEventListener('click',()=>{state.growthGroupOpen=false;render()})
+  document.querySelector('[data-growth-group-add]')?.addEventListener('click',()=>{const field=Object.keys(GROWTH_GROUP_FIELDS).find(f=>!state.growthGroups.some(r=>r.field===f));if(field)state.growthGroups.push({field,reverse:false});updateGrowthGroups()})
+  document.querySelector('[data-growth-group-clear]')?.addEventListener('click',()=>{state.growthGroups=[];updateGrowthGroups()})
+  document.querySelectorAll('[data-growth-group-field]').forEach(el=>el.onchange=()=>{state.growthGroups[Number(el.dataset.growthGroupField)].field=el.value;updateGrowthGroups()})
+  document.querySelectorAll('[data-growth-group-order]').forEach(el=>el.onclick=()=>{state.growthGroups[Number(el.dataset.growthGroupOrder)].reverse=el.dataset.reverse==='true';updateGrowthGroups()})
+  document.querySelectorAll('[data-growth-group-remove]').forEach(el=>el.onclick=()=>{state.growthGroups.splice(Number(el.dataset.growthGroupRemove),1);updateGrowthGroups()})
+  document.querySelectorAll('[data-growth-group-up]').forEach(el=>el.onclick=()=>{const i=Number(el.dataset.growthGroupUp);if(i>0)[state.growthGroups[i-1],state.growthGroups[i]]=[state.growthGroups[i],state.growthGroups[i-1]];updateGrowthGroups()})
+  document.querySelectorAll('[data-growth-group-toggle]').forEach(el=>el.onclick=()=>{const key=el.dataset.growthGroupToggle;state.growthCollapsed.has(key)?state.growthCollapsed.delete(key):state.growthCollapsed.add(key);render()})
+  document.querySelector('[data-growth-page]')?.addEventListener('change', e => { state.diagnosticPage = e.target.value; render() })
+  document.querySelectorAll('[data-growth-view]').forEach(b => b.onclick = () => { state.diagnosticView = b.dataset.growthView; render() })
+  document.querySelectorAll('[data-growth-layout]').forEach(b => b.onclick = () => { state.diagnosticLayout = b.dataset.growthLayout; render() })
+  document.querySelectorAll('[data-growth-filter]').forEach(b => b.onclick = () => { state.diagnosticFilter = b.dataset.growthFilter; render() })
   document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => { state.mode = button.dataset.mode; render() }))
   document.querySelector('[data-home-reset]')?.addEventListener('click', e => {
-    if (!isStrategiesPage()) {
+    if (!isPlainNavigation(e)) return
+    if (isStrategiesPage()) {
+      e.preventDefault()
+      navigatePage(routePath('/'))
+    } else {
       e.preventDefault()
       sampleReportRequested = false
       resetIdle(true)
@@ -936,8 +1050,9 @@ function bindEvents() {
     }
   })
   document.querySelector('[data-load-sample-report]')?.addEventListener('click', e => {
-    if (isStrategiesPage()) return
+    if (!isPlainNavigation(e)) return
     e.preventDefault()
+    if (isStrategiesPage()) navigatePage(routePath('/'))
     loadSampleReport()
   })
   document.querySelector('[data-contact-author]')?.addEventListener('click', () => { state.modal = { type: 'contact' }; render() })
@@ -946,7 +1061,17 @@ function bindEvents() {
   document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { state.view = b.dataset.view; render() })
   document.querySelector('#sort-select')?.addEventListener('change', e => { state.sort = e.target.value; render() })
   document.querySelectorAll('.product-card button').forEach(btn => btn.onclick = () => handleProductAction(btn.closest('.product-card').dataset.id, btn.dataset.action))
-  document.querySelectorAll('[data-strategy-id]').forEach(btn => btn.onclick = () => { state.activeStrategyId = btn.dataset.strategyId; render() })
+  document.querySelectorAll('[data-strategy-id]').forEach(btn => btn.onclick = () => { state.activeStrategyId = btn.dataset.strategyId; state.strategyDetailTab = 'effect'; render() })
+  document.querySelectorAll('[data-strategy-tab]').forEach(btn => btn.onclick = () => { state.strategyDetailTab = btn.dataset.strategyTab; render(); document.querySelector(`[data-strategy-tab="${state.strategyDetailTab}"]`)?.focus() })
+  document.querySelector('[role="tablist"][aria-label="策略详情"]')?.addEventListener('keydown', e => {
+    const ids = ['effect', 'config', 'next']
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+    e.preventDefault()
+    const index = ids.indexOf(state.strategyDetailTab)
+    state.strategyDetailTab = e.key === 'Home' ? ids[0] : e.key === 'End' ? ids[2] : ids[(index + (e.key === 'ArrowRight' ? 1 : 2)) % 3]
+    render()
+    document.querySelector(`[data-strategy-tab="${state.strategyDetailTab}"]`)?.focus()
+  })
   document.querySelectorAll('[data-close-strategy-drawer]').forEach(btn => btn.onclick = () => { state.activeStrategyId = null; render() })
   document.querySelectorAll('[data-sample-detail]').forEach(btn => btn.onclick = () => { state.modal = { type: 'detail', id: btn.dataset.sampleDetail }; render() })
   document.querySelectorAll('[data-zoom-image]').forEach(btn => btn.onclick = e => { e.preventDefault(); e.stopPropagation(); state.modal = { type: 'zoom', image: btn.dataset.zoomImage, title: btn.dataset.zoomTitle, url: btn.dataset.zoomUrl }; render() })
@@ -954,12 +1079,12 @@ function bindEvents() {
   document.querySelector('#clear-compare')?.addEventListener('click', () => { state.compare.clear(); render() })
   document.querySelector('#open-compare')?.addEventListener('click', () => { state.modal = {type:'compare'}; render() })
   document.querySelector('#reset-search')?.addEventListener('click', resetIdle)
-  document.addEventListener('keydown', keyHandler, { once: true })
 }
 
 function keyHandler(e) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); document.querySelector('#search-input')?.focus() }
-  if (e.key === 'Escape' && state.modal) { state.modal = null; render() }
+  if (e.key === 'Escape' && state.growthGroupOpen) { state.growthGroupOpen = false; render(); document.querySelector('[data-growth-group-open]')?.focus() }
+  else if (e.key === 'Escape' && state.modal) { state.modal = null; render() }
   else if (e.key === 'Escape' && state.activeStrategyId) { state.activeStrategyId = null; render() }
 }
 
@@ -1018,7 +1143,7 @@ async function runSearch(value) {
     state.dataMode = 'live'; state.sourceUrl = payload.store.sourceUrl; state.category = '全部品类'; state.compare.clear(); state.query = ''
     state.loading = false; state.journeyLoading = true; render()
     try {
-      const sampleUrls = (payload.store?.coverage?.products || []).map(product => product.handle ? `${new URL(targetUrl).origin}/products/${product.handle}` : '').filter(Boolean).slice(0, 1)
+      const sampleUrls = (payload.store?.upsell?.coverage?.products || payload.store?.coverage?.products || []).sort((a, b) => Number(b.price || 0) - Number(a.price || 0)).map(product => product.handle ? `${new URL(targetUrl).origin}/products/${product.handle}` : '').filter(Boolean).slice(0, 1)
       const journeyQuery = sampleUrls.length ? `&urls=${encodeURIComponent(sampleUrls.join('|'))}` : ''
       const journeyResponse = await fetch(`${apiPath('journey')}?url=${encodeURIComponent(targetUrl)}${journeyQuery}`)
       const journeyPayload = await readJsonResponse(journeyResponse, '购买路径验证暂时返回了非标准数据。')
@@ -1042,4 +1167,25 @@ function resetIdle(shouldRender = true) {
 
 function showToast(message) { requestAnimationFrame(() => { const t=document.querySelector('#toast'); if(!t)return; t.textContent=message; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1600) }) }
 
+document.addEventListener('keydown', keyHandler)
+document.addEventListener('click', e => {
+  if (state.growthGroupOpen && e.target instanceof Element && !e.target.closest('.growth-group-control')) {
+    state.growthGroupOpen = false
+    render()
+  }
+})
+
 render()
+
+// Keep the header in the document flow so changing its shape never shifts content.
+let menuScrollFrame = 0
+window.addEventListener('scroll', () => {
+  if (menuScrollFrame) return
+  menuScrollFrame = requestAnimationFrame(() => {
+    menuScrollFrame = 0
+    const menu = document.querySelector('.main-menu')
+    if (!menu) return
+    const floating = menu.classList.contains('is-floating')
+    menu.classList.toggle('is-floating', window.scrollY > (floating ? 24 : 80))
+  })
+}, { passive: true })

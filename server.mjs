@@ -1,3 +1,5 @@
+import { merchandiseProducts } from './lib/product-sampling.mjs'
+import { storeProfile } from './lib/store-profile.mjs'
 import http from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
@@ -6,7 +8,7 @@ import { lookup } from 'node:dns/promises'
 import { createServer as createViteServer } from 'vite'
 import { runInteractiveJourney } from './lib/journey.mjs'
 
-const PORT = Number(process.env.PORT || 5173)
+const PORT = Number(process.env.PORT || 5190)
 const production = process.env.NODE_ENV === 'production'
 const MAX_BYTES = 4 * 1024 * 1024
 const APP_SIGNALS = [
@@ -18,11 +20,11 @@ const APP_SIGNALS = [
 
 const UPSELL_RULES = [
   { id:'free-shipping', name:'满额免邮', group:'门槛激励', patterns:[/free shipping/i,/免邮|免运费/i], why:'把用户的配送成本转化为“再买一点就划算”的明确目标，常用于推动凑单。', action:'在购物车显示距离免邮门槛还差多少钱，并推荐高毛利、低决策成本的小件商品。' },
-  { id:'bundle', name:'套装 / 组合购买', group:'组合销售', patterns:[/bundle|bundles|build a set|shop the set|组合|套装/i], why:'把多个相关商品包装成一个购买决策，减少用户自行搭配的成本。', action:'为主商品建立 2—3 个互补 SKU 的套装，并突出组合价与单买价差。' },
+  { id:'bundle', name:'套装 / 组合购买', group:'组合销售', patterns:[/bundle|bundles|make it a set|add all three|build a set|shop the set|组合|套装/i], why:'把多个相关商品包装成一个购买决策，减少用户自行搭配的成本。', action:'为主商品建立 2—3 个互补 SKU 的套装，并突出组合价与单买价差。' },
   { id:'quantity-break', name:'多件折扣 / 阶梯价', group:'数量激励', patterns:[/buy more|more you buy|quantity discount|multi-buy|2\s*for|3\s*for|买多|多件|阶梯折扣/i], why:'用更低的边际价格鼓励用户增加件数，适合消耗品、礼品和低客单商品。', action:'测试 2 件、3 件的阶梯折扣，确保折扣后的毛利仍高于单件获客成本。' },
   { id:'subscription', name:'订阅省钱', group:'复购与客单', patterns:[/subscribe|subscription|save \d+%|订阅|定期购/i], why:'通过价格利益换取更高的购买频次和更稳定的订单价值。', action:'在一次性购买旁边展示订阅选项，明确节省金额、配送频率和随时取消。' },
   { id:'product-recs', name:'商品相关推荐', group:'交叉销售', patterns:[/you may also like|related products|recommended for you|推荐商品|猜你喜欢/i], why:'在用户已经表达兴趣后提供下一件商品，推荐阻力低于首页导购。', action:'优先推荐互补品而非同类替代品，并标注“搭配购买”理由。' },
-  { id:'frequently-bought', name:'经常一起购买', group:'交叉销售', patterns:[/frequently bought together|often bought together|经常一起购买|一起买/i], why:'借助社会证明降低用户对连带购买的犹豫。', action:'在商品页或购物车展示 1 个主商品 + 2 个互补商品的组合加购。' },
+  { id:'frequently-bought', name:'经常一起购买', group:'交叉销售', patterns:[/frequently bought together|often bought together|pairs well with|经常一起购买|一起买/i], why:'借助社会证明降低用户对连带购买的犹豫。', action:'在商品页或购物车展示 1 个主商品 + 2 个互补商品的组合加购。' },
   { id:'cart-drawer', name:'购物车抽屉 / 加购后推荐', group:'购物车转化', patterns:[/cart drawer|quick cart|mini cart|购物车抽屉|继续购物/i], why:'加购后立即承接购买意图，是展示轻量加购优惠的黄金时机。', action:'加购后打开抽屉，加入“本单顺手带上”的推荐位和一键加购按钮。' },
   { id:'gift-threshold', name:'满额赠品', group:'门槛激励', patterns:[/free gift|gift with purchase|gift on orders|赠品|满赠/i], why:'赠品的感知价值通常高于同额折扣，可推动用户跨过订单门槛。', action:'设置一个成本可控、与主品类相关的赠品门槛，并在购物车动态提示。' },
   { id:'upsell-upgrade', name:'高配版本升级', group:'价格升级', patterns:[/premium|pro version|upgrade|best value|旗舰|升级版|高配/i], why:'让用户在同一需求下选择更高价格方案，提升单笔收入而不增加流量成本。', action:'将高配 SKU 设计成“推荐选择”，用性能差异和每次使用成本解释溢价。' },
@@ -41,7 +43,7 @@ const UPSELL_RULES = [
   { id:'free-returns', name:'退换货保障降低升级阻力', group:'信任增强', patterns:[/free returns|easy returns|money back|guarantee|免费退换|无忧退换|保障/i], why:'降低高价和追加购买的风险感知，有助于用户选择更高价值方案。', action:'把保障信息放在高配升级和推荐商品旁，而不是只放在页脚。' },
   { id:'gift-wrap', name:'礼盒 / 加价包装', group:'场景销售', patterns:[/gift wrap|gift packaging|add a gift|礼盒|礼品包装|加价包装/i], why:'礼品包装是低成本、高毛利的附加购买，适合节日和礼赠场景。', action:'在购物车提供礼盒、贺卡和个性化留言等轻量附加项。' },
   { id:'personalization', name:'个性化定制加价', group:'价格升级', patterns:[/personaliz|customiz|engraving|monogram|个性化|定制|刻字/i], why:'定制服务提高感知价值和支付意愿，能把普通商品升级为独特商品。', action:'把定制选项做成清晰的加价变体，并预览最终效果。' },
-  { id:'quiz-recommendation', name:'问答式商品推荐', group:'导购转化', patterns:[/product quiz|find your|which .* for you|take the quiz|测验|帮你选择|适合你的/i], why:'通过问题降低选择成本，能把更多用户导向更高价值或更合适的组合。', action:'围绕使用场景设计 3—5 个问题，结果页同时推荐主品和互补品。' },
+  { id:'quiz-recommendation', name:'问答式商品推荐', group:'导购转化', patterns:[/product quiz|find your (match|perfect|ideal)|which .* for you|take the quiz|测验|帮你选择|适合你的/i], why:'通过问题降低选择成本，能把更多用户导向更高价值或更合适的组合。', action:'围绕使用场景设计 3—5 个问题，结果页同时推荐主品和互补品。' },
   { id:'social-share', name:'分享 / 邀请奖励', group:'会员增长', patterns:[/refer a friend|referral|share and save|邀请好友|分享得|推荐奖励/i], why:'奖励分享能带来低成本新客，也能促使用户购买可分享的套装或礼赠组合。', action:'设置清晰的双方奖励，避免奖励规则比商品本身更复杂。' },
   { id:'landing-bundle', name:'场景落地页组合', group:'组合销售', patterns:[/shop the look|complete the look|starter kit|routine|入门套装|完整搭配|场景套装/i], why:'按场景打包比按单品陈列更容易让用户一次买齐。', action:'为通勤、旅行、健身、礼赠等场景制作组合落地页。' },
   { id:'back-in-stock', name:'补货提醒带回购推荐', group:'复购与客单', patterns:[/back in stock|notify me|restock|到货通知|补货提醒/i], why:'补货提醒重新激活高意向用户，可同时推荐同系列或配套商品。', action:'通知商品到货时同步推荐相关配件或多件优惠。' }
@@ -240,7 +242,7 @@ export async function analyzeShopify(input) {
   }
   if (!rawProducts.length) throw new Error('公开商品目录中没有可读取商品')
   const cart = await safeFetch(`${requested.origin}/cart`, 'text/html,application/xhtml+xml').catch(() => ({ body:'' }))
-  const productPage = productMatch ? html : await safeFetch(`${requested.origin}/products/${rawProducts[0]?.handle || ''}`, 'text/html,application/xhtml+xml').catch(() => ({ body:'' }))
+  const productPage = productMatch ? html : await safeFetch(`${requested.origin}/products/${merchandiseProducts(rawProducts)[0]?.handle || ''}`, 'text/html,application/xhtml+xml').catch(() => ({ body:'' }))
   const observableText = `${html}\n${productPage.body || ''}\n${cart.body || ''}`
   const apps = APP_SIGNALS.filter(([,pattern]) => pattern.test(observableText)).map(([name]) => name)
   const upsell = buildUpsellReport(detectUpsellStrategies(observableText), rawProducts.length)
@@ -252,6 +254,12 @@ export async function analyzeShopify(input) {
     apps: apps.length ? apps : ['未发现明确的公开 App 信号'], traffic: '—', trafficChange: null, channels: [],
     description: plainText(description).slice(0,300) || `${title} 的公开 Shopify 店铺资料。`, confidence: 96, sourceType: 'live', sourceUrl: home.url.href, productSource
   }
+  const profile = storeProfile(html, rawProducts, home.url.href, productSource)
+  store.profile = profile
+  if (profile.name) store.name = profile.name
+  if (profile.description) store.description = profile.description
+  if (profile.currency) store.currency = profile.currency
+  if (profile.themeName) store.theme = profile.themeName
   const context = { name:title, domain:store.domain, url:productSource, storeId }
   store.upsell = upsell
   store.conversion = buildConversionReport({ html, productPage: productPage.body || '', cart: cart.body || '' })
@@ -263,7 +271,7 @@ export async function analyzeShopify(input) {
 function sendJson(res, status, payload) { res.writeHead(status, {'content-type':'application/json; charset=utf-8','cache-control':'no-store'}); res.end(JSON.stringify(payload)) }
 
 async function startServer() {
-const vite = production ? null : await createViteServer({ server: { middlewareMode: true }, appType: 'spa' })
+const vite = production ? null : await createViteServer({ server: { middlewareMode: true, headers: { 'Cache-Control': 'no-store' }, hmr: { port: PORT + 20000 } }, appType: 'spa' })
 const server = http.createServer(async (req, res) => {
   if (req.url?.startsWith('/api/journey')) {
     try {

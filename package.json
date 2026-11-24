@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node server.mjs",
+    "dev": "node --watch-path=server.mjs --watch-path=lib server.mjs",
     "build": "vite build",
     "preview": "NODE_ENV=production node server.mjs",
     "worker": "NODE_ENV=production node worker.mjs"

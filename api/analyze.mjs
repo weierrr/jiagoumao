@@ -1,3 +1,5 @@
+import { merchandiseProducts } from '../lib/product-sampling.mjs'
+import { storeProfile } from '../lib/store-profile.mjs'
 import { lookup } from 'node:dns/promises'
 
 const MAX_BYTES = 4 * 1024 * 1024
@@ -7,10 +9,10 @@ const APP_SIGNALS = [
   ['AfterShip', /aftership/i], ['Omnisend', /omnisend/i], ['TikTok', /analytics\.tiktok|tiktok\.com/i], ['Meta Pixel', /connect\.facebook\.net\/.*fbevents/i]
 ]
 const UPSELL_RULES = [
-  ['free-shipping','满额免邮','门槛激励',[/free shipping/i,/免邮|免运费/i]], ['bundle','套装 / 组合购买','组合销售',[/bundle|bundles|build a set|shop the set|组合|套装/i]],
+  ['free-shipping','满额免邮','门槛激励',[/free shipping/i,/免邮|免运费/i]], ['bundle','套装 / 组合购买','组合销售',[/bundle|bundles|make it a set|add all three|build a set|shop the set|组合|套装/i]],
   ['quantity-break','多件折扣 / 阶梯价','数量激励',[/buy more|more you buy|quantity discount|multi-buy|2\s*for|3\s*for|买多|多件|阶梯折扣/i]],
   ['subscription','订阅省钱','复购与客单',[/subscribe|subscription|save \d+%|订阅|定期购/i]], ['product-recs','商品相关推荐','交叉销售',[/you may also like|related products|recommended for you|推荐商品|猜你喜欢/i]],
-  ['frequently-bought','经常一起购买','交叉销售',[/frequently bought together|often bought together|经常一起购买|一起买/i]], ['cart-drawer','购物车抽屉 / 加购后推荐','购物车转化',[/cart drawer|quick cart|mini cart|购物车抽屉|继续购物/i]],
+  ['frequently-bought','经常一起购买','交叉销售',[/frequently bought together|often bought together|pairs well with|经常一起购买|一起买/i]], ['cart-drawer','购物车抽屉 / 加购后推荐','购物车转化',[/cart drawer|quick cart|mini cart|购物车抽屉|继续购物/i]],
   ['gift-threshold','满额赠品','门槛激励',[/free gift|gift with purchase|gift on orders|赠品|满赠/i]], ['upsell-upgrade','高配版本升级','价格升级',[/premium|pro version|upgrade|best value|旗舰|升级版|高配/i]],
   ['social-proof','评价 / 社会证明','信任增强',[/reviews?|rating|customer(s)? say|评价|评论|用户说/i]], ['discount-code','优惠码 / 首单优惠','价格激励',[/discount code|promo code|first order|welcome offer|优惠码|首单|新人优惠/i]],
   ['free-gift-card','礼品卡 / 礼赠场景','场景销售',[/gift card|gifting|礼品卡|送礼/i]],
@@ -20,7 +22,7 @@ const UPSELL_RULES = [
   ['limited-time','限时促销倒计时','紧迫感',[/countdown|ends in|limited time|limited offer|倒计时|限时|仅剩/i]], ['low-stock','库存稀缺提示','紧迫感',[/only \d+ left|low stock|almost gone|库存紧张|仅剩 \d+|售罄风险/i]],
   ['membership','会员 / 积分加购激励','会员增长',[/rewards?|loyalty|points|member price|积分|会员价|奖励计划/i]], ['free-returns','退换货保障降低升级阻力','信任增强',[/free returns|easy returns|money back|guarantee|免费退换|无忧退换|保障/i]],
   ['gift-wrap','礼盒 / 加价包装','场景销售',[/gift wrap|gift packaging|add a gift|礼盒|礼品包装|加价包装/i]], ['personalization','个性化定制加价','价格升级',[/personaliz|customiz|engraving|monogram|个性化|定制|刻字/i]],
-  ['quiz-recommendation','问答式商品推荐','导购转化',[/product quiz|find your|which .* for you|take the quiz|测验|帮你选择|适合你的/i]], ['social-share','分享 / 邀请奖励','会员增长',[/refer a friend|referral|share and save|邀请好友|分享得|推荐奖励/i]],
+  ['quiz-recommendation','问答式商品推荐','导购转化',[/product quiz|find your (match|perfect|ideal)|which .* for you|take the quiz|测验|帮你选择|适合你的/i]], ['social-share','分享 / 邀请奖励','会员增长',[/refer a friend|referral|share and save|邀请好友|分享得|推荐奖励/i]],
   ['landing-bundle','场景落地页组合','组合销售',[/shop the look|complete the look|starter kit|routine|入门套装|完整搭配|场景套装/i]], ['back-in-stock','补货提醒带回购推荐','复购与客单',[/back in stock|notify me|restock|到货通知|补货提醒/i]]
 ]
 const plainText = html => String(html || '').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/g,' ').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\s+/g,' ').trim()
@@ -52,7 +54,9 @@ const absoluteImage = image => typeof image === 'string' ? (image.startsWith('//
 function productRecord(raw, context, index=0) { const variants=raw.variants||[]; const first=variants[0]||{}; const price=raw.price!=null?money(raw.price):Number(first.price||0); const compare=raw.compare_at_price!=null?money(raw.compare_at_price):Number(first.compare_at_price||0); const options=(raw.options||[]).map(o=>typeof o==='string'?o:`${o.name}: ${(o.values||[]).slice(0,4).join(' / ')}`); return {id:`live-${raw.id||index}`,brand:raw.vendor||context.name,store:context.domain,name:raw.title,price,compareAt:compare>price?compare:null,rating:null,reviews:0,category:raw.product_type||'真实店铺',country:'公开页面未提供',imageUrl:absoluteImage(raw.featured_image||raw.image||raw.images?.[0]),image:'linear-gradient(145deg,#f7f7f7,#e8e8e8)',trend:null,updated:'刚刚',confidence:98,description:plainText(raw.body_html||raw.description).slice(0,500)||'公开商品数据未提供描述。',sourceType:'live',sourceUrl:context.url,sellingPoints:options.length?options.slice(0,4):['商品标题、价格与变体来自公开 Shopify 数据'],specs:{'商品类型':raw.product_type||'未公开','供应商品牌':raw.vendor||context.name,'变体数量':`${variants.length||1}`,'可选项':options.join('；')||'未公开','商品 Handle':raw.handle||'未公开'},storeId:context.storeId} }
 async function analyzeShopify(input) {
   const requested = new URL(input)
-  const home = await safeFetch(`${requested.origin}/`)
+  const previewTheme = requested.searchParams.get('preview_theme_id')
+  const previewQuery = previewTheme && /^\d+$/.test(previewTheme) ? `?preview_theme_id=${previewTheme}` : ''
+  const home = await safeFetch(`${requested.origin}/${previewQuery}`)
   const html = home.body
   if (!/cdn\.shopify\.com|Shopify\.shop|shopify-section|myshopify\.com/i.test(html)) throw new Error('未在该网站检测到 Shopify 信号')
   const title = plainText((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [, ''])[1]).split(/[|–—-]/)[0].trim() || requested.hostname.replace(/^www\./, '')
@@ -63,12 +67,12 @@ async function analyzeShopify(input) {
   const result = await safeFetch(productSource, 'application/json,text/plain')
   rawProducts = productMatch ? [JSON.parse(result.body)] : JSON.parse(result.body).products || []
   if (!rawProducts.length) throw new Error('公开商品目录中没有可读取商品')
-  const cartFetch = await safeFetch(`${requested.origin}/cart`).catch(() => null)
+  const cartFetch = await safeFetch(`${requested.origin}/cart${previewQuery}`).catch(() => null)
   const cartHtml = cartFetch?.body || ''
-  const representativeHandle = rawProducts.find(product => product.handle)?.handle
+  const representativeHandle = merchandiseProducts(rawProducts).find(product => product.handle)?.handle
   const representativeUrl = productMatch
     ? requested.href
-    : (representativeHandle ? `${requested.origin}/products/${representativeHandle}` : '')
+    : (representativeHandle ? `${requested.origin}/products/${representativeHandle}${previewQuery}` : '')
   const productFetch = representativeUrl ? await safeFetch(representativeUrl).catch(() => null) : null
   const productHtml = productFetch?.body || ''
   const observableText = `${html} ${productHtml} ${cartHtml}`
@@ -109,7 +113,7 @@ async function analyzeShopify(input) {
   const opportunities = strategies.filter(x => x.status === '未观察到').slice(0, 5).map((item, index) => ({ ...item, priority: index < 2 ? '高' : index < 4 ? '中' : '低' }))
   const prices = rawProducts.flatMap(p => (p.variants || []).map(v => Number(v.price || 0))).filter(Number.isFinite)
   const observedCount = strategies.filter(x => x.status !== '未观察到').length
-  const rankedProducts = [...rawProducts].sort((a, b) => {
+  const rankedProducts = [...merchandiseProducts(rawProducts)].sort((a, b) => {
     const price = product => Number(product.price || product.variants?.[0]?.price || 0)
     return price(a) - price(b)
   })
@@ -155,6 +159,12 @@ async function analyzeShopify(input) {
       summary: `本次公开页面扫描观察到 ${observedCount} / ${strategies.length} 类客单价策略线索，覆盖 ${representativeProducts.length} 个价格带代表商品；未观察到不等于后台没有配置。`
     }
   }
+  const profile = storeProfile(html, rawProducts, home.url.href, productSource)
+  store.profile = profile
+  if (profile.name) store.name = profile.name
+  if (profile.description) store.description = profile.description
+  if (profile.currency) store.currency = profile.currency
+  if (profile.themeName) store.theme = profile.themeName
   const context = { name: title, domain: store.domain, url: productSource, storeId }
   return { mode: productMatch ? 'product' : 'store', products: rawProducts.slice(0, 50).map((p, i) => productRecord(p, context, i)), store, upsell: store.upsell, conversion: store.conversion }
 }

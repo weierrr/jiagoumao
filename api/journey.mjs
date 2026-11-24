@@ -2,17 +2,24 @@ import { runInteractiveJourney } from '../lib/journey.mjs'
 
 export const config = { maxDuration: 60 }
 
-async function runOnWorker(urls) {
+export async function runOnWorker(urls, request = fetch) {
   const base = String(process.env.BROWSER_WORKER_URL || '').replace(/\/$/, '')
   if (!base) return null
   const requestSignal = AbortSignal.timeout(8000)
-  const created = await fetch(`${base}/jobs`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ urls }), signal: requestSignal })
-  if (!created.ok) throw new Error((await created.text()).slice(0, 240) || '浏览器 Worker 创建任务失败')
+  let created
+  try {
+    created = await request(`${base}/jobs`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ urls }), signal: requestSignal })
+  } catch { return null } // Worker unavailable: use the bundled browser.
+  if ([404, 502, 503, 504].includes(created.status)) return null
+  if (created.status === 429) throw new Error('购买路径验证服务繁忙，请稍后重试。')
+  if (!created.ok) throw new Error(`购买路径验证服务创建任务失败（HTTP ${created.status}），未完成验证。`)
   const { id } = await created.json()
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9-]+$/.test(id)) throw new Error('购买路径验证服务返回了无效任务，未完成验证。')
   const deadline = Date.now() + 54000
   while (Date.now() < deadline) {
     await new Promise(resolve => setTimeout(resolve, 900))
-    const response = await fetch(`${base}/jobs/${id}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5000) })
+    const response = await request(`${base}/jobs/${id}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5000) })
+    if (!response.ok) throw new Error(`购买路径验证服务读取任务失败（HTTP ${response.status}），未完成验证。`)
     const job = await response.json()
     if (job.status === 'completed') return job.result
     if (job.status === 'failed') throw new Error(job.error || '浏览器 Worker 执行失败')
